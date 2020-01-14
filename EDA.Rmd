@@ -1,0 +1,41 @@
+---
+title: "EDA"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### EDA
+
+## Data source
+https://www.kaggle.com/shivamb/netflix-shows
+## Data in 
+```{r, eval = FALSE}
+unzip("netflix-shows.zip")
+```
+
+```{r}
+data_in <- read.csv("netflix_titles_nov_2019.csv")
+
+head(data_in)
+
+```
+
+
+- Ratings by a country
+- maps by country
+- most popular actors as defined by how many titles they are in
+- average number of actors quoted per title
+- number of reviews per country
+- do we have only one id per row?
+- do we have duplicate names? 
+- common bigrams / trigrams
+- inverse frequency on the description
+- count of characters in the description
+
+Zipf's Law ------------------------
+Zipf’s law states that the frequency that a word appears is inversely 
+proportional to its rank.
