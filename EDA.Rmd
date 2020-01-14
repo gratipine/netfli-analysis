@@ -18,14 +18,18 @@ unzip("netflix-shows.zip")
 ```
 
 ```{r}
-data_in <- read.csv("netflix_titles_nov_2019.csv")
-
-head(data_in)
+library(data.table)
+data_in <- data.table(read.csv("netflix_titles_nov_2019.csv"))
 
 ```
-
+```{r}
+data_in[]
+```
 
 - Ratings by a country
+```{r}
+data_in[, mean(as.numeric(rating)), country]
+```
 - maps by country
 - most popular actors as defined by how many titles they are in
 - average number of actors quoted per title
@@ -35,6 +39,9 @@ head(data_in)
 - common bigrams / trigrams
 - inverse frequency on the description
 - count of characters in the description
+- most popular groups
+- most niche groups - the shows in them are not listed in many more groups on 
+average
 
 Zipf's Law ------------------------
 Zipf’s law states that the frequency that a word appears is inversely 
