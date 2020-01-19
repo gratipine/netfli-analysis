@@ -19,17 +19,37 @@ unzip("netflix-shows.zip")
 
 ```{r}
 library(data.table)
-data_in <- data.table(read.csv("netflix_titles_nov_2019.csv"))
+library(ggplot2)
+data_in <- data.table(read.csv("netflix_titles_nov_2019.csv", 
+                               stringsAsFactors = FALSE))
 
 ```
+
+- Ratings
+
 ```{r}
-data_in[]
+ggplot(data_in, aes(x = rating)) +
+  geom_histogram(stat="count") +
+  ggtitle("Histogram of ratings")
+# todo: Need to have a look at the different types of ratings
+```
+```{r}
+library(dplyr)
+library(tidyr)
+
+countries <- data_in %>% 
+  mutate(symbols = strsplit(country, ",")) %>% 
+  unnest(symbols) %>%
+  data.table()
+
 ```
 
-- Ratings by a country
 ```{r}
-data_in[, mean(as.numeric(rating)), country]
+
+ggplot 
+titles_by_countries 
 ```
+
 - maps by country
 - most popular actors as defined by how many titles they are in
 - average number of actors quoted per title
