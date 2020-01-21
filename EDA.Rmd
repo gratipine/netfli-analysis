@@ -20,7 +20,7 @@ unzip("netflix-shows.zip")
 ```{r}
 library(data.table)
 library(ggplot2)
-data_in <- data.table(read.csv("netflix_titles_nov_2019.csv", 
+data_in <- data.table(read.csv("netflix_titles.csv", 
                                stringsAsFactors = FALSE))
 
 ```
@@ -29,7 +29,7 @@ data_in <- data.table(read.csv("netflix_titles_nov_2019.csv",
 
 ```{r}
 ggplot(data_in, aes(x = rating)) +
-  geom_histogram(stat="count") +
+  geom_histogram(stat = "count") +
   ggtitle("Histogram of ratings")
 # todo: Need to have a look at the different types of ratings
 ```
@@ -38,7 +38,7 @@ library(dplyr)
 library(tidyr)
 
 countries <- data_in %>% 
-  mutate(symbols = strsplit(country, ",")) %>% 
+  mutate(symbols = strsplit(country, " ,")) %>% 
   unnest(symbols) %>%
   data.table()
 
@@ -46,8 +46,18 @@ countries <- data_in %>%
 
 ```{r}
 
-ggplot 
-titles_by_countries 
+titles_by_countries <- countries[, .(title, symbols)]
+
+counted_titles_per_country <- titles_by_countries[, .(counts = .N), .(symbols)]
+setorder(counted_titles_per_country,-counts)
+
+library(dplyr)
+
+counted_titles_per_country %>%
+  top_n(15) %>%
+  ggplot(aes(x = symbols, y = counts)) +
+  geom_point()
+
 ```
 
 - maps by country
