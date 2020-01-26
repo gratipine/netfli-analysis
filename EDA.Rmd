@@ -129,25 +129,26 @@ counted_titles_per_actor[, .(last_name = grep("", cast, value = TRUE))]
 how many other directors were in it
 
 ```{r}
-actors <- data_in %>% 
-  mutate(cast = strsplit(cast, " ,")) %>%
-  unnest(cast) %>%
-  mutate(cast = strsplit(cast, ",")) %>%
-  unnest(cast) %>%
+directors <- data_in %>% 
+  mutate(director = strsplit(director, ", ")) %>%
+  unnest(director) %>%
+  mutate(director = strsplit(director, ",")) %>%
+  unnest(director) %>%
   data.table()
 
-actors[, cast := gsub("^ ", "", cast),]
+# directors[, directors := gsub("^ ", "", directors),]
 
-titles_by_actors <- actors[, .(title, cast)]
+titles_by_directors <- directors[, .(title, directors)]
 
-counted_titles_per_actor <- titles_by_actors[, .(counts = .N), .(cast)]
-setorder(counted_titles_per_actor,-counts)
+counted_titles_per_directors <- titles_by_directors[
+  , .(counts = .N), .(directors)]
+setorder(counted_titles_per_directors,-counts)
 
-View(counted_titles_per_actor)
+# View(counted_titles_per_actor)
 
-counted_titles_per_actor %>%
+counted_titles_per_directors %>%
   top_n(10) %>%
-  ggplot(aes(x = cast, y = counts)) +
+  ggplot(aes(x = directors, y = counts)) +
   geom_point()
 
 ```
