@@ -38,9 +38,13 @@ library(dplyr)
 library(tidyr)
 
 countries <- data_in %>% 
-  mutate(symbols = strsplit(country, " ,")) %>% 
+  mutate(symbols = strsplit(country, " ,")) %>%
+  unnest(symbols) %>%
+  mutate(symbols = strsplit(symbols, ",")) %>%
   unnest(symbols) %>%
   data.table()
+
+countries[, symbols := gsub("^ ", "", symbols),]
 
 ```
 
@@ -51,7 +55,7 @@ titles_by_countries <- countries[, .(title, symbols)]
 counted_titles_per_country <- titles_by_countries[, .(counts = .N), .(symbols)]
 setorder(counted_titles_per_country,-counts)
 
-library(dplyr)
+View(counted_titles_per_country)
 
 counted_titles_per_country %>%
   top_n(15) %>%
@@ -60,8 +64,98 @@ counted_titles_per_country %>%
 
 ```
 
-- maps by country
+Quite a lot of movies are produced / created in the United States. That makes 
+sense from the point of view that the Western / Hollywood culture has been 
+overtaking everything. On the other hand, we are talking a three times more
+movies produces in the States than in the second most popular country - India.
+It would be interesting to compare this to the countries of the viewers of 
+Netflix.
+
 - most popular actors as defined by how many titles they are in
+```{r}
+head(data_in)
+
+actors <- data_in %>% 
+  mutate(cast = strsplit(cast, " ,")) %>%
+  unnest(cast) %>%
+  mutate(cast = strsplit(cast, ",")) %>%
+  unnest(cast) %>%
+  data.table()
+
+actors[, cast := gsub("^ ", "", cast),]
+
+titles_by_actors <- actors[, .(title, cast)]
+
+counted_titles_per_actor <- titles_by_actors[, .(counts = .N), .(cast)]
+setorder(counted_titles_per_actor,-counts)
+
+View(counted_titles_per_actor)
+
+counted_titles_per_actor %>%
+  top_n(10) %>%
+  ggplot(aes(x = cast, y = counts)) +
+  geom_point()
+
+```
+Lots of what I assume are Indian names. Let's make a cross of what actors
+play in which countries.
+
+This next code is not perfect -> for titles that have been produced in more than 
+one country you will get duplicates in the actor counts. However, it does give 
+us an idea where actors travel. 
+
+```{r}
+
+titles_by_countries_and_actors <- merge(
+  titles_by_countries, titles_by_actors, 
+  by = "title", allow.cartesian = TRUE)
+
+tabled <- table(titles_by_countries_and_actors$cast,
+                titles_by_countries_and_actors$symbols)
+
+tabled_dt <- data.table(as.data.frame(tabled))
+
+setnames(tabled_dt, c("Var1", "Var2"), c("actor", "country"))
+
+tabled_dt <- merge(tabled_dt, counted_titles_per_actor, 
+                   by.x = "actor", by.y = "cast")
+
+tabled_dt <- tabled_dt[Freq > 0]
+
+setorder(tabled_dt, -counts)
+
+tabled_dt %>%
+  filter(counts > 25) %>%
+  # top_n(30) %>%
+  ggplot(aes(x = actor, y = counts)) +
+  facet_wrap(~country, scales = "free") +
+  geom_point()
+
+```
+
+
+- is there a good last name for an actor?
+```{r}
+library(tidytext)
+counted_titles_per_actor[, id := 1:.N]
+tokenized <- counted_titles_per_actor %>%
+  unnest_tokens(word, cast)
+
+tokenized %>%
+  group_by(id) %>%
+  count(id) %>%
+  
+tokenized[, number_o]
+
+counted_titles_per_actor[, .(last_name = grep("", cast, value = TRUE))]
+```
+
+
+- most popular directors as defined by how many things they have directed + 
+how many other directors were in it
+
+
+- maps by country
 - average number of actors quoted per title
 - number of reviews per country
 - do we have only one id per row?
@@ -72,6 +166,8 @@ counted_titles_per_country %>%
 - most popular groups
 - most niche groups - the shows in them are not listed in many more groups on 
 average
+- how does the distribution of movies change over time - movies produced in 
+different countries added in 
 
 Zipf's Law ------------------------
 Zipf’s law states that the frequency that a word appears is inversely 
