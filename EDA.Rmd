@@ -23,6 +23,14 @@ library(ggplot2)
 data_in <- data.table(read.csv("netflix_titles.csv", 
                                stringsAsFactors = FALSE))
 
+# most of the obs of a data scientist - dealing with inconsistent / dirty 
+# data
+data_in[, date_added := gsub(", ", ",", date_added)]
+data_in[, date_added := gsub("^ ", "", date_added)]
+data_in[date_added == "", 
+        date_added := paste0("January 01,", release_year)]
+
+data_in[, date_added := as.Date(date_added, format = "%B %d,%Y")]
 ```
 
 - Ratings
@@ -97,41 +105,7 @@ counted_titles_per_actor %>%
   geom_point()
 
 ```
-Lots of what I assume are Indian names. Let's make a cross of what actors
-play in which countries.
-
-This next code is not perfect -> for titles that have been produced in more than 
-one country you will get duplicates in the actor counts. However, it does give 
-us an idea where actors travel. 
-
-```{r}
-
-titles_by_countries_and_actors <- merge(
-  titles_by_countries, titles_by_actors, 
-  by = "title", allow.cartesian = TRUE)
-
-tabled <- table(titles_by_countries_and_actors$cast,
-                titles_by_countries_and_actors$symbols)
-
-tabled_dt <- data.table(as.data.frame(tabled))
-
-setnames(tabled_dt, c("Var1", "Var2"), c("actor", "country"))
-
-tabled_dt <- merge(tabled_dt, counted_titles_per_actor, 
-                   by.x = "actor", by.y = "cast")
-
-tabled_dt <- tabled_dt[Freq > 0]
-
-setorder(tabled_dt, -counts)
-
-tabled_dt %>%
-  filter(counts > 25) %>%
-  # top_n(30) %>%
-  ggplot(aes(x = actor, y = counts)) +
-  facet_wrap(~country, scales = "free") +
-  geom_point()
-
-```
+Lots of what I assume are Indian names.
 
 
 - is there a good last name for an actor?
@@ -154,6 +128,30 @@ counted_titles_per_actor[, .(last_name = grep("", cast, value = TRUE))]
 - most popular directors as defined by how many things they have directed + 
 how many other directors were in it
 
+```{r}
+actors <- data_in %>% 
+  mutate(cast = strsplit(cast, " ,")) %>%
+  unnest(cast) %>%
+  mutate(cast = strsplit(cast, ",")) %>%
+  unnest(cast) %>%
+  data.table()
+
+actors[, cast := gsub("^ ", "", cast),]
+
+titles_by_actors <- actors[, .(title, cast)]
+
+counted_titles_per_actor <- titles_by_actors[, .(counts = .N), .(cast)]
+setorder(counted_titles_per_actor,-counts)
+
+View(counted_titles_per_actor)
+
+counted_titles_per_actor %>%
+  top_n(10) %>%
+  ggplot(aes(x = cast, y = counts)) +
+  geom_point()
+
+```
+
 
 - maps by country
 - average number of actors quoted per title
@@ -168,6 +166,19 @@ how many other directors were in it
 average
 - how does the distribution of movies change over time - movies produced in 
 different countries added in 
+
+- TV shows against movies over time
+```{r}
+# something sketchy happening here
+counts_type <- data_in[, .N, .(type, date_added)]
+max(counts_type$N)
+counts_type[, quarter := zoo::as.yearqtr(date_added)]
+counts_type <- counts_type[, .(N = sum(N)), .(type, quarter)]
+max(counts_type$N)
+ggplot(counts_type, aes(x = quarter, y = N, col = type))+
+  geom_line() +
+  ggtitle("Additions of shows and movies by quarter")
+```
 
 Zipf's Law ------------------------
 Zipf’s law states that the frequency that a word appears is inversely 
