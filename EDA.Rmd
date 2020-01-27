@@ -199,12 +199,29 @@ setorder(counted_titles, -N)
 counted_titles[N > 1]
 ```
 - common bigrams / trigrams in the description
+
+- sentiment analysis of the titles - crude sums, might be better to associate 
+the words with the ncp sentiments? would be more precise correlation for the 
+categories
 ```{r}
 description_text <- data_in %>%
   unnest_tokens(word, description) %>%
-  anti_join(stop_words)
+  select(show_id, "word") %>%
+  anti_join(stop_words) %>%
+  inner_join(get_sentiments("afinn")) %>%
+  data.table()
 
 head(description_text)
+
+overall_sum_sentiments <- description_text[
+  , .(sentiment_score = sum(value)), .(show_id)]
+
+```
+
+- how does overall sentiment score correlate to the categories that a given 
+show is slotted in?
+
+```{r}
 
 ```
 - inverse frequency on the description
