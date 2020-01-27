@@ -117,9 +117,7 @@ tokenized <- counted_titles_per_actor %>%
 
 tokenized %>%
   group_by(id) %>%
-  count(id) %>%
-  
-tokenized[, number_o]
+  count(id)
 
 counted_titles_per_actor[, .(last_name = grep("", cast, value = TRUE))]
 ```
@@ -138,20 +136,46 @@ directors <- data_in %>%
 
 # directors[, directors := gsub("^ ", "", directors),]
 
-titles_by_directors <- directors[, .(title, directors)]
+titles_by_directors <- directors[, .(title, director)]
 
-counted_titles_per_directors <- titles_by_directors[
-  , .(counts = .N), .(directors)]
+counted_titles_per_directors <- titles_by_directors[, .(counts = .N), .(director)]
 setorder(counted_titles_per_directors,-counts)
 
 # View(counted_titles_per_actor)
 
 counted_titles_per_directors %>%
   top_n(10) %>%
-  ggplot(aes(x = directors, y = counts)) +
+  ggplot(aes(x = director, y = counts)) +
   geom_point()
 
 ```
+
+Curious - that is a lot more productions per director than I would have 
+expected. Let's see how many of these were co-chaired.
+
+```{r}
+count_directors_per_title <- titles_by_directors[, .N, .(title)]
+ggplot(count_directors_per_title, aes(x = N)) +
+  geom_histogram()
+```
+
+There is a movie with 10 directors? That is a lot of people. Let see some more 
+details.
+
+```{r}
+movie_titles <- count_directors_per_title[N > 4, title]
+
+View(data_in[title %in% movie_titles])
+
+```
+
+Alright for the shows, if a bit surprising for the movies. Important to mention 
+that there are prductions in this data set that have no directors. To be precise,
+there are `r round(nrow(data_in[director == ""]) / nrow(data_in) * 100, 2)`%
+of productions like that. 
+Missing values can be sometimes imputed, but in this case there is nothing we
+can really do about this lack besides be aware of it and try to take it into 
+account. 
 
 
 - maps by country
@@ -176,7 +200,7 @@ max(counts_type$N)
 counts_type[, quarter := zoo::as.yearqtr(date_added)]
 counts_type <- counts_type[, .(N = sum(N)), .(type, quarter)]
 max(counts_type$N)
-ggplot(counts_type, aes(x = quarter, y = N, col = type))+
+ggplot(counts_type, aes(x = quarter, y = N, col = type)) +
   geom_line() +
   ggtitle("Additions of shows and movies by quarter")
 ```
