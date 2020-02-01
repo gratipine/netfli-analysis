@@ -63,8 +63,6 @@ titles_by_countries <- countries[, .(title, symbols)]
 counted_titles_per_country <- titles_by_countries[, .(counts = .N), .(symbols)]
 setorder(counted_titles_per_country,-counts)
 
-View(counted_titles_per_country)
-
 counted_titles_per_country %>%
   top_n(15) %>%
   ggplot(aes(x = symbols, y = counts)) +
@@ -81,8 +79,6 @@ Netflix.
 
 - most popular actors as defined by how many titles they are in
 ```{r}
-head(data_in)
-
 actors <- data_in %>% 
   mutate(cast = strsplit(cast, " ,")) %>%
   unnest(cast) %>%
@@ -163,7 +159,7 @@ details.
 ```{r}
 movie_titles <- count_directors_per_title[N > 4, c("title", "show_id")]
 
-View(data_in[show_id %in% movie_titles$show_id])
+data_in[show_id %in% movie_titles$show_id]
 
 ```
 
@@ -181,8 +177,8 @@ account.
 number_of_actors <- actors[, .N, .(show_id, title)]
 
 ggplot(number_of_actors, aes(x = N)) +
-  geom_histogram()
-
+  geom_histogram() +
+  ggtitle("Average number of actor quoted per title")
 
 ```
 - do we have only one id per row? - general housekeeping 
@@ -211,8 +207,6 @@ description_text <- data_in %>%
   inner_join(get_sentiments("afinn")) %>%
   data.table()
 
-head(description_text)
-
 overall_sum_sentiments <- description_text[
   , .(sentiment_score = sum(value)), .(show_id)]
 
@@ -222,8 +216,76 @@ overall_sum_sentiments <- description_text[
 show is slotted in?
 
 ```{r}
+categories <- data_in %>% 
+  mutate(categories = strsplit(listed_in, ", ")) %>%
+  unnest(categories) %>%
+  mutate(categories = strsplit(categories, ",")) %>%
+  unnest(categories) %>%
+  data.table()
+
+categories <- unique(categories[, .(categories, show_id, title)])
+
+categories_afinn <- merge(categories, overall_sum_sentiments, by = "show_id")
+
+unique(categories_afinn$categories)
+
+ggplot(categories_afinn, aes(x = categories, y = sentiment_score)) +
+  geom_boxplot()
+```
+
+One score is not very representative of a whole movie, especially since we are 
+calculating it on a description, rather than the whole script of the movie.
+That makes the numeric representation of the movie a very high-level
+representation of it and we expect a lot of details to get lost. 
+
+That being the case it is perhaps more illuminating to look at associated words,
+rather than associated numbers.
+
+- words associated with the descriptions by category
+```{r}
+description_text_nrc <- data_in %>%
+  unnest_tokens(word, description) %>%
+  select(show_id, "word") %>%
+  anti_join(stop_words) %>%
+  inner_join(get_sentiments("nrc")) %>%
+  data.table()
+
+description_text_nrc
+
+
+categories_nrc <- merge(categories, description_text_nrc, by = "show_id",
+                        allow.cartesian = TRUE)
 
 ```
+
+
+Let's have a look at what the distributions are. We have a lot of categories, 
+some of them duplicating for movies and TV shows. For ease of access, let's 
+have a look at the movies only.
+```{r}
+categories_nrc[show_id == 70142827]
+
+categories_nrc <- merge(categories_nrc, data_in[, .(show_id, type)])
+
+ggplot(categories_nrc[
+  type == "Movie" & sentiment %in% c("negative", "positive"),],
+  aes(x = sentiment, fill = sentiment)) +
+  geom_histogram(stat="count")+
+  facet_wrap(~categories, scales = "free") +
+  # theme(axis.text.x = element_text(angle = 90)) +
+  ggtitle("Positive and negative sentiment counts per movie category")
+
+ggplot(categories_nrc[
+  type != "Movie" & sentiment %in% c("negative", "positive"),],
+  aes(x = sentiment, fill = sentiment)) +
+  geom_histogram(stat="count")+
+  facet_wrap(~categories, scales = "free") +
+  # theme(axis.text.x = element_text(angle = 90)) +
+  ggtitle("Positive and negative sentiment counts per TV show category")
+
+
+```
+
 - inverse frequency on the description
 - count of characters in the description
 - most popular groups
