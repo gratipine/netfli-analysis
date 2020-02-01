@@ -223,9 +223,9 @@ categories <- data_in %>%
   unnest(categories) %>%
   data.table()
 
-categories <- unique(categories[, .(categories, show_id, title)])
+categories_short <- unique(categories[, .(categories, show_id, title)])
 
-categories_afinn <- merge(categories, overall_sum_sentiments, by = "show_id")
+categories_afinn <- merge(categories_short, overall_sum_sentiments, by = "show_id")
 
 unique(categories_afinn$categories)
 
@@ -253,7 +253,7 @@ description_text_nrc <- data_in %>%
 description_text_nrc
 
 
-categories_nrc <- merge(categories, description_text_nrc, by = "show_id",
+categories_nrc <- merge(categories_short, description_text_nrc, by = "show_id",
                         allow.cartesian = TRUE)
 
 ```
@@ -286,11 +286,53 @@ ggplot(categories_nrc[
 
 ```
 
-- inverse frequency on the description
-- count of characters in the description
+
 - most popular groups
+```{r}
+categories %>%
+  group_by(type) %>%
+  count(categories) %>%
+  arrange(desc(n)) %>%
+  group_by(type) %>%
+  top_n(5) %>%
+  ungroup() %>%
+  arrange(desc(n)) %>%
+  ggplot(aes(x = categories, y = n, fill = categories)) +
+  geom_col() +
+  facet_wrap(~type, scales = "free") +
+  theme(axis.text.x = element_text(angle = 45))
+
+```
+
+- inverse frequency on the description
+```{r}
+text <- data_in %>%
+  unnest_tokens(word, description) %>%
+  select(show_id, title, word) %>%
+  anti_join(stop_words)
+
+word_tf_idf <- text %>%
+  count(show_id, word) %>%
+  bind_tf_idf(word, show_id, n) %>%
+  arrange(desc(tf_idf))
+
+word_tf_idf %>%
+  mutate(word = factor(word, levels = rev(unique(word)))) %>% 
+  arrange(desc(tf_idf)) %>%
+  top_n(15) %>% 
+  ggplot(aes(word, tf_idf, fill = show_id)) +
+  geom_col(show.legend = TRUE) +
+  labs(x = NULL, y = "tf-idf") +
+  coord_flip() +
+  ggtitle("The 15 rarest words in the dataset")
+
+```
 - most niche groups - the shows in them are not listed in many more groups on 
 average
+```{r}
+
+```
+
 - how does the distribution of movies change over time - movies produced in 
 different countries added in 
 
@@ -306,7 +348,3 @@ ggplot(counts_type, aes(x = quarter, y = N, col = type)) +
   geom_line() +
   ggtitle("Additions of shows and movies by quarter")
 ```
-
-Zipf's Law ------------------------
-Zipf’s law states that the frequency that a word appears is inversely 
-proportional to its rank.
