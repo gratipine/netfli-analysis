@@ -5,10 +5,25 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width = 12)
+
+```
+
+```{r}
+library(ggplot2)
+large_font_size <- theme(axis.text.x = element_text(size = 14), 
+        axis.title.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14), 
+        axis.title.y = element_text(size = 14),
+        plot.title = element_text(size=20))
+
 ```
 
 ## Overview
-Netflix has 
+Netflix has become a staple of entertainment for many households across the
+world. As such it shapes what those households have access to in terms of 
+culture. This markdown will have a look at some of the features of a Netflix 
+dataset that was released on Kaggle. 
 
 ## Data source
 https://www.kaggle.com/shivamb/netflix-shows
@@ -18,31 +33,54 @@ https://www.kaggle.com/shivamb/netflix-shows
 unzip("netflix-shows.zip")
 ```
 
-```{r}
+```{r, warning=FALSE, message=FALSE}
 library(data.table)
 library(ggplot2)
 data_in <- data.table(read.csv("netflix_titles.csv", 
                                stringsAsFactors = FALSE))
 
-# most of the obs of a data scientist - dealing with inconsistent / dirty 
-# data
+# large chunk of the job of a data scientist - dealing with inconsistent / 
+# dirty data
 data_in[, date_added := gsub(", ", ",", date_added)]
 data_in[, date_added := gsub("^ ", "", date_added)]
 data_in[date_added == "", 
         date_added := paste0("January 01,", release_year)]
 
 data_in[, date_added := as.Date(date_added, format = "%B %d,%Y")]
+
+library(DT)
+
+DT::datatable(head(data_in, 1))
 ```
 
-- Ratings
+## Analysis 
 
-```{r}
-ggplot(data_in, aes(x = rating)) +
+There are several interesting parts of this data and some questions we could be
+exploring. As a first step we will be starting with the ratings.
+
+**Disclaimer:**
+
+Given that we will not be
+doing any modeling with the data, we will be using all of it in our exploration.
+If we were planning to, for example, try to predict categories using 
+the description, we would have to split this data into test / train 
+datasets as a first step before we do any exploration. 
+
+- Ratings - some of them are rated TV-X and some have the typical ratings that
+are associated with movies. Because of that I have split them by type of medium.
+However, this is perhaps not ideal either, since some movies are made for
+TV and thus would have the TV ratings. Additionally, we can see that there are 
+some movies without a rating at all (the first bar). A second look shows that 
+it is `r nrow(data_in[rating == ""])` without any rating, which is not that 
+many rows overall and we could probably jsut drop them if we are trying to 
+use the ratings column.
+```{r, warning=FALSE}
+ggplot(data_in, aes(x = rating, fill=type)) +
   geom_histogram(stat = "count") +
-  ggtitle("Histogram of ratings")
-# todo: Need to have a look at the different types of ratings
+  ggtitle("Histogram of ratings") +
+  facet_wrap(~type, scales = "free")
 ```
-```{r}
+```{r, message=FALSE, warning=FALSE}
 library(dplyr)
 library(tidyr)
 
@@ -57,7 +95,7 @@ countries[, symbols := gsub("^ ", "", symbols),]
 
 ```
 
-```{r}
+```{r, fig.width=12, message=FALSE}
 
 titles_by_countries <- countries[, .(title, show_id, symbols, date_added)]
 
@@ -67,19 +105,23 @@ setorder(counted_titles_per_country,-counts)
 counted_titles_per_country %>%
   top_n(15) %>%
   ggplot(aes(x = symbols, y = counts)) +
-  geom_point()
+  geom_point() +
+  large_font_size +
+  theme(axis.text.x = element_text(angle = 90)) +
+  ggtitle("Productions associated with each country")
 
 ```
 
 Quite a lot of movies are produced / created in the United States. That makes 
 sense from the point of view that the Western / Hollywood culture has been 
-overtaking everything. On the other hand, we are talking a three times more
+overtaking movie production. On the other hand, we are talking a three times
+more
 movies produces in the States than in the second most popular country - India.
 It would be interesting to compare this to the countries of the viewers of 
-Netflix.
+Netflix, if such data was available.
 
 - most popular actors as defined by how many titles they are in
-```{r}
+```{r, message=FALSE, warning=FALSE, fig.width=12}
 actors <- data_in %>% 
   mutate(cast = strsplit(cast, " ,")) %>%
   unnest(cast) %>%
@@ -94,27 +136,11 @@ titles_by_actors <- actors[, .(show_id, title, cast)]
 counted_titles_per_actor <- titles_by_actors[, .(counts = .N), .(cast)]
 setorder(counted_titles_per_actor,-counts)
 
-counted_titles_per_actor %>%
-  top_n(10) %>%
-  ggplot(aes(x = cast, y = counts)) +
-  geom_point()
+suppressWarnings(counted_titles_per_actor %>%
+                   top_n(10) %>%
+                   ggplot(aes(x = cast, y = counts)) +
+                   geom_point())
 
-```
-Lots of what I assume are Indian names.
-
-
-- is there a good last name for an actor?
-```{r}
-library(tidytext)
-counted_titles_per_actor[, id := 1:.N]
-tokenized <- counted_titles_per_actor %>%
-  unnest_tokens(word, cast)
-
-tokenized %>%
-  group_by(id) %>%
-  count(id)
-
-counted_titles_per_actor[, .(last_name = grep("", cast, value = TRUE))]
 ```
 
 
@@ -129,14 +155,10 @@ directors <- data_in %>%
   unnest(director) %>%
   data.table()
 
-# directors[, directors := gsub("^ ", "", directors),]
-
 titles_by_directors <- directors[, .(show_id, title, director)]
 
 counted_titles_per_directors <- titles_by_directors[, .(counts = .N), .(director)]
 setorder(counted_titles_per_directors,-counts)
-
-# View(counted_titles_per_actor)
 
 counted_titles_per_directors %>%
   top_n(10) %>%
@@ -200,7 +222,8 @@ counted_titles[N > 1]
 - sentiment analysis of the titles - crude sums, might be better to associate 
 the words with the ncp sentiments? would be more precise correlation for the 
 categories
-```{r}
+```{r, message=FALSE}
+library(tidytext)
 description_text <- data_in %>%
   unnest_tokens(word, description) %>%
   select(show_id, "word") %>%
