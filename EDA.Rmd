@@ -7,11 +7,12 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
-### EDA
+## Overview
+Netflix has 
 
 ## Data source
 https://www.kaggle.com/shivamb/netflix-shows
+
 ## Data in 
 ```{r, eval = FALSE}
 unzip("netflix-shows.zip")
@@ -58,7 +59,7 @@ countries[, symbols := gsub("^ ", "", symbols),]
 
 ```{r}
 
-titles_by_countries <- countries[, .(title, symbols)]
+titles_by_countries <- countries[, .(title, show_id, symbols, date_added)]
 
 counted_titles_per_country <- titles_by_countries[, .(counts = .N), .(symbols)]
 setorder(counted_titles_per_country,-counts)
@@ -330,21 +331,78 @@ word_tf_idf %>%
 - most niche groups - the shows in them are not listed in many more groups on 
 average
 ```{r}
+total_number_of_categories_per_show <- categories_short[, .N, .(show_id)]
+
+categories_with_counts <- merge(
+  categories_short, total_number_of_categories_per_show)
+
+categories_with_counts[, percentage_of_categories := 1 / N]
+mean_per_category <- categories_with_counts[
+  , .(percentage_of_categories = mean(percentage_of_categories)), .(categories)]
+
+
+
+
+ggplot(mean_per_category[percentage_of_categories > 0.5],
+       aes(x = categories, y = percentage_of_categories)) +
+  geom_point() +
+  ggtitle("Most niche categories (appearing on their own most of the time")
 
 ```
+
+- correlations of the categories
+```{r}
+ggplot(categories, aes(x = categories, y = categories)) +
+  geom_point()
+
+
+# run correlations on the dummified categories
+library(caret)
+dmy <- dummyVars(" ~ .", data = categories[, .(show_id, categories)])
+one_hot_encoded <- data.table(predict(dmy, newdata = categories))
+one_hot_encoded[, .(lapply(.SD, sum)), .(show_id)]
+
+one_hot_encoded <- one_hot_encoded %>%
+  group_by(show_id) %>%
+  summarise_each(funs(sum))
+
+new_names <- gsub("categories", "", names(one_hot_encoded))
+setnames(one_hot_encoded, names(one_hot_encoded), new_names)
+
+correlations <- cor(one_hot_encoded[,-1])
+corrplot::corrplot(correlations, method = "number")
+```
+
+The correlations plot is very bare - overall we rarely have something that 
+correlates even at 40%, nevermind higher strength correlations.
+
+
 
 - how does the distribution of movies change over time - movies produced in 
 different countries added in 
 
+```{r}
+titles_by_countries
+counted_titles_by_date_and_country <- titles_by_countries[
+  , .N, .(symbols, year(date_added))]
+
+required_countries <- counted_titles_by_date_and_country[
+  year == 2019 & N > 50, symbols]
+
+counted_titles_by_date_and_country %>%
+  filter(symbols  %in% required_countries) %>%
+  ggplot(aes(x = year, y = log10(N), col = symbols)) +
+  geom_line() +
+  ggtitle("Additions of shows and movies by year per country (log 10)")
+
+```
+
 - TV shows against movies over time
 ```{r}
 # something sketchy happening here
-counts_type <- data_in[, .N, .(type, date_added)]
+counts_type <- data_in[, .N, .(type, year(date_added))]
 max(counts_type$N)
-counts_type[, quarter := zoo::as.yearqtr(date_added)]
-counts_type <- counts_type[, .(N = sum(N)), .(type, quarter)]
-max(counts_type$N)
-ggplot(counts_type, aes(x = quarter, y = N, col = type)) +
+ggplot(counts_type, aes(x = year, y = N, col = type)) +
   geom_line() +
-  ggtitle("Additions of shows and movies by quarter")
+  ggtitle("Additions of shows and movies by year")
 ```
