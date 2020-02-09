@@ -199,7 +199,7 @@ very nice bell curve around 8 - 10, with another peak around 1. We can read this
 as most TV shows tend to have about 10 actors quoted, but we also have a large 
 number of titles (possibly stand ups) that are quoted with only one person. 
 
-It is important to keep in mind that for a lot of titles we have no actors - 
+It is important to keep in mind that for some titles we have no actors - 
 `r data_in[cast == "", .N] / nrow(data_in)` % of the dataset.
 ```{r}
 number_of_actors <- actors[, .N, .(show_id, title)]
