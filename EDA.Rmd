@@ -36,11 +36,11 @@ library(caret)
 ```
 
 ```{r set_ggplot_theme}
-large_font_size <- theme(axis.text.x = element_text(size = 14), 
+large_font_size <- theme(axis.text.x = element_text(size = 14),
         axis.title.x = element_text(size = 14),
-        axis.text.y = element_text(size = 14), 
+        axis.text.y = element_text(size = 14),
         axis.title.y = element_text(size = 14),
-        plot.title = element_text(size=20))
+        plot.title = element_text(size = 20))
 
 ```
 
@@ -50,14 +50,14 @@ unzip("netflix-shows.zip")
 ```
 
 ```{r data_in_&_clean}
-data_in <- data.table(read.csv("netflix_titles.csv", 
+data_in <- data.table(read.csv("netflix_titles.csv",
                                stringsAsFactors = FALSE))
 
-# large chunk of the job of a data scientist - dealing with inconsistent / 
+# large chunk of the job of a data scientist - dealing with inconsistent /
 # dirty data
 data_in[, date_added := gsub(", ", ",", date_added)]
 data_in[, date_added := gsub("^ ", "", date_added)]
-data_in[date_added == "", 
+data_in[date_added == "",
         date_added := paste0("January 01,", release_year)]
 
 data_in[, date_added := as.Date(date_added, format = "%B %d,%Y")]
@@ -81,7 +81,7 @@ Having a look at this by type as well since it is a practice to have a movie
 followed by a show of the same name.
 
 ```{r}
-counted_titles <- data_in[,.N ,.(title, type)]
+counted_titles <- data_in[, .N, .(title, type)]
 setorder(counted_titles, -N)
 
 ```
@@ -92,8 +92,9 @@ than the title.
 
 ## Analysis 
 
-There are several interesting parts of this data and some questions we could be
-exploring. As a first step we will be starting with the ratings.
+There are several interesting questions we could be
+answering with this data. As a first step we will be starting with the ratings
+and their ditribution. 
 
 **Disclaimer:**
 
@@ -113,7 +114,7 @@ is `r nrow(data_in[rating == ""])`, which is not that high and we could
 probably jsut drop them if we are trying to use the ratings column. However,
 it is important to keep in mind.
 ```{r}
-ggplot(data_in, aes(x = rating, fill=type)) +
+ggplot(data_in, aes(x = rating, fill = type)) +
   geom_histogram(stat = "count") +
   ggtitle("Histogram of ratings") +
   facet_wrap(~type, scales = "free")
@@ -130,14 +131,14 @@ It would be interesting to compare this to the countries of the viewers of
 Netflix, if such data was available.
 
 ```{r}
-countries <- data_in %>% 
+countries <- data_in %>%
   mutate(symbols = strsplit(country, " ,")) %>%
   unnest(symbols) %>%
   mutate(symbols = strsplit(symbols, ",")) %>%
   unnest(symbols) %>%
   data.table()
 
-countries[, symbols := gsub("^ ", "", symbols),]
+countries[, symbols := gsub("^ ", "", symbols)]
 
 ```
 
@@ -146,7 +147,7 @@ countries[, symbols := gsub("^ ", "", symbols),]
 titles_by_countries <- countries[, .(title, show_id, symbols, date_added)]
 
 counted_titles_per_country <- titles_by_countries[, .(counts = .N), .(symbols)]
-setorder(counted_titles_per_country,-counts)
+setorder(counted_titles_per_country, -counts)
 
 counted_titles_per_country %>%
   top_n(15) %>%
@@ -173,19 +174,19 @@ Bollywood actors. I was a bit surprised to find that the two Japanese names on
 the list are of voice actors, even though that makes sense - Japan creates a lot
 of animated movies / TV series.
 ```{r, fig.width=12}
-actors <- data_in %>% 
+actors <- data_in %>%
   mutate(cast = strsplit(cast, " ,")) %>%
   unnest(cast) %>%
   mutate(cast = strsplit(cast, ",")) %>%
   unnest(cast) %>%
   data.table()
 
-actors[, cast := gsub("^ ", "", cast),]
+actors[, cast := gsub("^ ", "", cast)]
 
 titles_by_actors <- actors[, .(show_id, title, cast)]
 
 counted_titles_per_actor <- titles_by_actors[, .(counts = .N), .(cast)]
-setorder(counted_titles_per_actor,-counts)
+setorder(counted_titles_per_actor, -counts)
 
 suppressWarnings(counted_titles_per_actor %>%
                    top_n(top_n_actors) %>%
@@ -221,7 +222,7 @@ is a lot fewer than for the actors. Additionally, there is a bit more of a
 varied representation, including one person with a traditionally female name.
 
 ```{r}
-directors <- data_in %>% 
+directors <- data_in %>%
   mutate(director = strsplit(director, ", ")) %>%
   unnest(director) %>%
   mutate(director = strsplit(director, ",")) %>%
@@ -230,8 +231,9 @@ directors <- data_in %>%
 
 titles_by_directors <- directors[, .(show_id, title, director)]
 
-counted_titles_per_directors <- titles_by_directors[, .(counts = .N), .(director)]
-setorder(counted_titles_per_directors,-counts)
+counted_titles_per_directors <- titles_by_directors[
+  , .(counts = .N), .(director)]
+setorder(counted_titles_per_directors, -counts)
 
 counted_titles_per_directors %>%
   top_n(10) %>%
@@ -324,7 +326,7 @@ negative score, while the stand up category is almost always positive.
 
 
 ```{r}
-categories <- data_in %>% 
+categories <- data_in %>%
   mutate(categories = strsplit(listed_in, ", ")) %>%
   unnest(categories) %>%
   mutate(categories = strsplit(categories, ",")) %>%
@@ -333,7 +335,8 @@ categories <- data_in %>%
 
 categories_short <- unique(categories[, .(categories, show_id, title)])
 
-categories_afinn <- merge(categories_short, overall_sum_sentiments, by = "show_id")
+categories_afinn <- merge(
+  categories_short, overall_sum_sentiments, by = "show_id")
 
 unique(categories_afinn$categories)
 
@@ -371,22 +374,20 @@ Let's have a look at what the distributions are. We have a lot of categories,
 some of them duplicating for movies and TV shows. For ease of access, let's 
 have a look at the movies only.
 ```{r}
-# categories_nrc[show_id == 70142827]
-
 categories_nrc <- merge(categories_nrc, data_in[, .(show_id, type)])
 
 ggplot(categories_nrc[
-  type == "Movie" & sentiment %in% c("negative", "positive"),],
+  type == "Movie" & sentiment %in% c("negative", "positive"), ],
   aes(x = sentiment, fill = sentiment)) +
-  geom_histogram(stat="count")+
+  geom_histogram(stat = "count") +
   facet_wrap(~categories, scales = "free") +
   # theme(axis.text.x = element_text(angle = 90)) +
   ggtitle("Positive and negative sentiment counts per movie category")
 
 ggplot(categories_nrc[
-  type != "Movie" & sentiment %in% c("negative", "positive"),],
+  type != "Movie" & sentiment %in% c("negative", "positive"), ],
   aes(x = sentiment, fill = sentiment)) +
-  geom_histogram(stat="count")+
+  geom_histogram(stat = "count") +
   facet_wrap(~categories, scales = "free") +
   # theme(axis.text.x = element_text(angle = 90)) +
   ggtitle("Positive and negative sentiment counts per TV show category")
@@ -424,9 +425,9 @@ word_tf_idf <- text %>%
   arrange(desc(tf_idf))
 
 word_tf_idf %>%
-  mutate(word = factor(word, levels = rev(unique(word)))) %>% 
+  mutate(word = factor(word, levels = rev(unique(word)))) %>%
   arrange(desc(tf_idf)) %>%
-  top_n(15) %>% 
+  top_n(15) %>%
   ggplot(aes(word, tf_idf, fill = show_id)) +
   geom_col(show.legend = TRUE) +
   labs(x = NULL, y = "tf-idf") +
@@ -438,10 +439,10 @@ word_tf_idf %>%
 - most niche groups - the shows in them are not listed in many more groups on 
 average
 ```{r}
-total_number_of_categories_per_show <- categories_short[, .N, .(show_id)]
+number_of_categories_per_show <- categories_short[, .N, .(show_id)]
 
 categories_with_counts <- merge(
-  categories_short, total_number_of_categories_per_show)
+  categories_short, number_of_categories_per_show)
 
 categories_with_counts[, percentage_of_categories := 1 / N]
 mean_per_category <- categories_with_counts[
@@ -473,7 +474,7 @@ one_hot_encoded <- one_hot_encoded %>%
 new_names <- gsub("categories", "", names(one_hot_encoded))
 setnames(one_hot_encoded, names(one_hot_encoded), new_names)
 
-correlations <- cor(one_hot_encoded[,-1])
+correlations <- cor(one_hot_encoded[, -1])
 corrplot::corrplot(correlations, method = "number")
 ```
 
@@ -485,13 +486,13 @@ different countries added in
 
 ```{r}
 titles_by_countries
-counted_titles_by_date_and_country <- titles_by_countries[
+count_name_by_date_country <- titles_by_countries[
   , .N, .(symbols, year(date_added))]
 
-required_countries <- counted_titles_by_date_and_country[
+required_countries <- count_name_by_date_country[
   year == 2019 & N > 50, symbols]
 
-counted_titles_by_date_and_country %>%
+count_name_by_date_country %>%
   filter(symbols  %in% required_countries) %>%
   ggplot(aes(x = year, y = log10(N), col = symbols)) +
   geom_line() +
