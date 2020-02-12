@@ -314,9 +314,9 @@ When doing sentiment analysis, we are trying to quantify what are the associated
 emotions with a given text. In this data set we have two sources of text - the
 title and the description. The title would not be a candidate for an analysis - 
 it is a very high level description of what is happening in the text and thus 
-not good for a nuanced look at the show / movie. A description is also a high 
-level look, but at least a bit more of the plot is put in there, so we have a 
-chance.
+not good for a nuanced look at the show / movie. A description would also not be 
+a first choice of text to analyze, but at least a bit more of the plot is put in
+there, so we have a chance.
 
 #### Sums of scores
 As a first try we have a look at the sum of numeric scores that are associated 
@@ -343,15 +343,15 @@ ggplot(overall_sum_sentiments, aes(x = sentiment_score)) +
 
 ```
 
-One way of splitting these titles is by the category they are slotted in. It is 
-important to note that one title can have multiple associeated categories, so 
+One way of splitting these titles is by the category they are slotted in. 
+Notice that one title can have multiple associeated categories, so 
 this is not so cut and dry. The plot is a bit hard to read this way - most of 
 the categories seem to be on the same levels. However, there are a couple of 
 stand out ones. For example, the thriller category is almost always with a 
 negative score, while the stand up category is almost always positive. 
 
 
-```{r}
+```{r, fig.height = 10}
 categories <- data_in %>%
   mutate(categories = strsplit(listed_in, ", ")) %>%
   unnest(categories) %>%
@@ -364,8 +364,6 @@ categories_short <- unique(categories[, .(categories, show_id, title)])
 categories_afinn <- merge(
   categories_short, overall_sum_sentiments, by = "show_id")
 
-unique(categories_afinn$categories)
-
 ggplot(categories_afinn, aes(x = categories, y = sentiment_score)) +
   geom_boxplot() +
   theme(axis.text.x = element_text(angle = 90)) +
@@ -377,7 +375,7 @@ calculating it on a description, rather than the whole script of the movie.
 That makes the numeric representation of the movie a very high-level
 representation of it and we expect a lot of details to get lost. 
 
-That being the case it is perhaps more illuminating to look at associated words,
+It is perhaps more illuminating to look at associated words,
 rather than associated numbers. For that we can use the NRC dataset, which shows
 us whether a word is positive or negative without a specific grade associated. 
 
@@ -389,8 +387,6 @@ description_text_nrc <- data_in %>%
   inner_join(get_sentiments("nrc")) %>%
   data.table()
 
-# description_text_nrc
-
 categories_nrc <- merge(categories_short, description_text_nrc, by = "show_id",
                         allow.cartesian = TRUE)
 ```
@@ -398,7 +394,11 @@ categories_nrc <- merge(categories_short, description_text_nrc, by = "show_id",
 
 Let's have a look at what the distributions are. We have a lot of categories, 
 some of them duplicating for movies and TV shows. For ease of access, let's 
-have a look at the movies only.
+have a look at the categories separately.
+
+This look for the most part confirms the conclusions from the previous one,
+with the surprise of reality TV for me. Surely it is not that positive of a 
+genre?
 ```{r}
 categories_nrc <- merge(categories_nrc, data_in[, .(show_id, type)])
 
@@ -421,7 +421,12 @@ ggplot(categories_nrc[
 ```
 
 
-- most popular groups
+Plotting the most popular categories also yields some surprises - there are a 
+lot of international shows and iinternational movies. Is this a catch-all 
+category? Are they international because they have been produced in many 
+countries or because they are shown in multiple different countries? (Netflix 
+did have different showings depending on what country you are looking at)
+
 ```{r}
 categories %>%
   group_by(type) %>%
@@ -434,9 +439,43 @@ categories %>%
   ggplot(aes(x = categories, y = n, fill = categories)) +
   geom_col() +
   facet_wrap(~type, scales = "free") +
-  theme(axis.text.x = element_text(angle = 45))
+  theme(axis.text.x = element_text(angle = 45)) +
+  ggtitle("Count of titles in each category for top 5 categories")
 
 ```
+The counts are not that different when we look at the producing country, so 
+probably that is not it. Some other alternatives that we could try if we wanted 
+to find the answer this way are:
+
+- check the first production country. Perhaps if it is different from USA, it is 
+tagged as international?
+
+- do an analysis of the names of the people involved. Perhaps having a foreign 
+director explains it?
+
+- check distribution of the movies - the more countries they are shown in, the 
+more likely they are to be tagged international?
+
+Of course, we can go down the route of programmatically figuring this out, but
+sometimes just a bit of domain knowlegde can save us a lot of time. 
+In this case my first stop would be the Netflix website / help/
+
+
+```{r}
+international_titles <- categories[
+  categories %in% c("International TV Shows", "International Movies"), show_id]
+
+counted_countries_title <- countries[, .N, .(show_id)]
+
+counted_countries_title[show_id %in% international_titles, 
+                        international := TRUE]
+counted_countries_title[is.na(international), international := FALSE]
+
+ggplot(counted_countries_title, aes(x = N, fill = international)) +
+  geom_histogram() +
+  ggtitle("Number of producing countries for internationa and otherwise")
+```
+
 
 - inverse frequency on the description
 ```{r}
