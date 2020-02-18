@@ -168,11 +168,10 @@ titles_by_countries <- countries[, .(title, show_id, symbols, date_added)]
 counted_titles_per_country <- titles_by_countries[, .(counts = .N), .(symbols)]
 setorder(counted_titles_per_country, -counts)
 
-#TODO - change this to a bar chart
 counted_titles_per_country %>%
   top_n(15) %>%
   ggplot(aes(x = symbols, y = counts)) +
-  geom_point() +
+  geom_col(fill = "#FF6666") +
   large_font_size +
   theme(axis.text.x = element_text(angle = 90)) +
   ggtitle("Productions associated with each country")
@@ -208,16 +207,15 @@ titles_by_actors <- actors[, .(show_id, title, cast)]
 counted_titles_per_actor <- titles_by_actors[, .(counts = .N), .(cast)]
 setorder(counted_titles_per_actor, -counts)
 
-# TODO - change into a bar chart
 suppressWarnings(counted_titles_per_actor %>%
                    top_n(top_n_actors) %>%
                    ggplot(aes(x = cast, y = counts)) +
-                   geom_point())
+                   geom_col(fill = "#FF6666"))
 
 ```
 
 Having a look at how many actors each title has is also interesting. There is a 
-very nice bell curve around 8 - 10, with another peak around 1. We can read this 
+nice bell curve around 8 - 10, with another peak around 1. We can read this 
 as most productions tend to have about 10 actors quoted, but we also have a
 large number of titles (possibly stand ups) that are quoted with only one 
 person. 
@@ -260,11 +258,11 @@ titles_by_directors <- directors[, .(show_id, title, director)]
 counted_titles_per_directors <- titles_by_directors[
   , .(counts = .N), .(director)]
 setorder(counted_titles_per_directors, -counts)
-#TODO - change to a bra chart with start of zero
+
 counted_titles_per_directors %>%
   top_n(10) %>%
   ggplot(aes(x = director, y = counts)) +
-  geom_point()
+  geom_col(fill = "#FF6666")
 
 ```
 
