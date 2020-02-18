@@ -38,10 +38,10 @@ library(caret)
 
 ```{r set_ggplot_theme}
 large_font_size <- theme(axis.text.x = element_text(size = 14),
-        axis.title.x = element_text(size = 14),
-        axis.text.y = element_text(size = 14),
-        axis.title.y = element_text(size = 14),
-        plot.title = element_text(size = 20))
+                         axis.title.x = element_text(size = 14),
+                         axis.text.y = element_text(size = 14),
+                         axis.title.y = element_text(size = 14),
+                         plot.title = element_text(size = 20))
 
 ```
 
@@ -207,10 +207,11 @@ titles_by_actors <- actors[, .(show_id, title, cast)]
 counted_titles_per_actor <- titles_by_actors[, .(counts = .N), .(cast)]
 setorder(counted_titles_per_actor, -counts)
 
-suppressWarnings(counted_titles_per_actor %>%
-                   top_n(top_n_actors) %>%
-                   ggplot(aes(x = cast, y = counts)) +
-                   geom_col(fill = "#FF6666"))
+counted_titles_per_actor %>%
+  top_n(top_n_actors) %>%
+  ggplot(aes(x = cast, y = counts)) +
+  geom_col(fill = "#FF6666") +
+  ggtitle(sprintf("Most popular %s actors by number of productions they have been in", top_n_actors))
 
 ```
 
@@ -279,7 +280,7 @@ episode, it was still a bit of a surprise to me.
 ```{r}
 count_directors_per_title <- titles_by_directors[, .N, .(show_id, title)]
 ggplot(count_directors_per_title, aes(x = N)) +
-  geom_histogram() +
+  geom_histogram(fill = "#FF6666") +
   scale_y_log10()
 ```
 
@@ -375,7 +376,28 @@ ggplot(categories_afinn, aes(x = categories, y = sentiment_score)) +
 
 #TODO - do a  histogram of this as well
 ```
+```{r}
+top_n_categories <- 5
 
+top_n_cat_df <- categories %>%
+  group_by(type) %>%
+  count(categories) %>%
+  arrange(desc(n)) %>%
+  group_by(type) %>%
+  top_n(5) %>%
+  ungroup() %>%
+  arrange(desc(n))
+
+for_plot <- merge(categories_afinn, top_n_cat_df,
+                  by = "categories")
+
+ggplot(for_plot, 
+       aes(colour = categories, x = sentiment_score)) +
+  geom_density() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  ggtitle("Scores per category") +
+  facet_wrap(~type, scales = "free")
+```
 One score is not very representative of a whole movie, especially since we are 
 calculating it on a description, rather than the whole script of the movie.
 That makes the numeric representation of the movie a very high-level
