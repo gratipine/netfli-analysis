@@ -7,7 +7,8 @@ output: html_document
 Netflix has become a staple of entertainment for many households across the
 world. As such it shapes what those households have access to in terms of 
 culture. This markdown will have a look at some of the features of a Netflix 
-dataset that was released on Kaggle. 
+dataset that was released on Kaggle to see what are some of the features of 
+the service provided. 
 
 ## Data source
 https://www.kaggle.com/shivamb/netflix-shows
@@ -66,25 +67,27 @@ DT::datatable(head(data_in, 1))
 ```
 
 #### Checks
+Data from the internet (and in real life) is often messy / dirty. While the 
+columns of this one look relatively tidy and there are no duplicates / 
+stray ids for features / strangely named features of the shows, it is good to
+check at least two things:
 
-Given our data set there are two general housekeeping things that I am
-interested in at first:
-
-- do we have only one id per row?
+- do we have only one id per row? Generally id columns are safe from human 
+meddling and less error prone, but you never know. 
 
 ```{r}
 length(unique(data_in$show_id)) == nrow(data_in)
 ```
 
-- do we have duplicate names? 
-Having a look at this by type as well since it is a practice to have a movie
-followed by a show of the same name.
+- do we have duplicate names? It is useful to have a look at this by type as
+well since it is a practice to have a movie followed by a show of the same name.
 
 ```{r}
 counted_titles <- data_in[, .N, .(title, type)]
 setorder(counted_titles, -N)
 
 ```
+
 We have `r nrow(counted_titles[N > 1])` titles in total that have been repeated.
 For this reason when we are interested in number of something per group (actors,
 words in description and so on), we should be grouping by the show_id rather
@@ -92,9 +95,8 @@ than the title.
 
 ## Analysis 
 
-There are several interesting questions we could be
-answering with this data. As a first step we will be starting with the ratings
-and their ditribution. 
+There are several interesting questions we can answer with this data. First we
+will look at the ratings and their ditribution. 
 
 **Disclaimer:**
 
@@ -111,8 +113,7 @@ However, this type of split is not ideal either, since some movies are made for
 TV and thus would have the TV ratings. To confound things further, there are 
 some titles without a rating at all (the first bar). For our sample their number 
 is `r nrow(data_in[rating == ""])`, which is not that high and we could
-probably jsut drop them if we are trying to use the ratings column. However,
-it is important to keep in mind.
+probably jsut drop them if we are trying to use the ratings column. 
 
 In both categories the biggest number of titles are in the TV-14 and TV-MA
 categories, suggesting that:
@@ -122,8 +123,10 @@ categories, suggesting that:
 - there is about an even split between shows targetted towards adults and 
 towards teenagers. Of course, this assumes that TV-14 titles are targetted 
 towards teenagers, rather than simply allowed for them to view and not 
-recommended for under-14s. In that case most of our data is targetted at adults,
-which makes sense if they are paying the bills. 
+recommended for under-14s. In that case most of our data is targetted at adults.
+This, coupled with some more detailed information about the categories of 
+the titles (niche horror, cheerleader movies) could tell us something about 
+what sort of people watch Netflix.
 ```{r}
 ggplot(data_in, aes(x = rating, fill = type)) +
   geom_histogram(stat = "count") +
@@ -158,13 +161,14 @@ countries[, symbols := gsub("^ ", "", symbols)]
 
 ```
 
-```{r}
+```{r, fig.height=10}
 
 titles_by_countries <- countries[, .(title, show_id, symbols, date_added)]
 
 counted_titles_per_country <- titles_by_countries[, .(counts = .N), .(symbols)]
 setorder(counted_titles_per_country, -counts)
 
+#TODO - change this to a bar chart
 counted_titles_per_country %>%
   top_n(15) %>%
   ggplot(aes(x = symbols, y = counts)) +
@@ -204,6 +208,7 @@ titles_by_actors <- actors[, .(show_id, title, cast)]
 counted_titles_per_actor <- titles_by_actors[, .(counts = .N), .(cast)]
 setorder(counted_titles_per_actor, -counts)
 
+# TODO - change into a bar chart
 suppressWarnings(counted_titles_per_actor %>%
                    top_n(top_n_actors) %>%
                    ggplot(aes(x = cast, y = counts)) +
@@ -217,7 +222,7 @@ as most productions tend to have about 10 actors quoted, but we also have a
 large number of titles (possibly stand ups) that are quoted with only one 
 person. 
 
-It is important to keep in mind that for some titles we have no actors - 
+Keep in mind that for some titles we have no actors - 
 `r round((data_in[cast == "", .N] / nrow(data_in)) * 100, 2)` % of the dataset. 
 ```{r}
 number_of_actors <- actors[, .N, .(show_id, title)]
@@ -255,7 +260,7 @@ titles_by_directors <- directors[, .(show_id, title, director)]
 counted_titles_per_directors <- titles_by_directors[
   , .(counts = .N), .(director)]
 setorder(counted_titles_per_directors, -counts)
-
+#TODO - change to a bra chart with start of zero
 counted_titles_per_directors %>%
   top_n(10) %>%
   ggplot(aes(x = director, y = counts)) +
@@ -268,10 +273,10 @@ weight if you were the only director as opposed to if you were a director in
 a big group. To give us a few details, here is what the distribution of number 
 of directors associated with a title looks like. Plotting this on a logged scale 
 makes it a bit easier to see where we actually have values and where we 
-potentially don't. In this case it is interesting to note that we have
+potentially don't. Note that we have
 some titles with more than 10 directors. While there are a lot of TV series
 in the dataset, which could in theory have a different director for each 
-episode, it is still interesting to note. 
+episode, it was still a bit of a surprise to me. 
 
 ```{r}
 count_directors_per_title <- titles_by_directors[, .N, .(show_id, title)]
@@ -280,8 +285,8 @@ ggplot(count_directors_per_title, aes(x = N)) +
   scale_y_log10()
 ```
 
-Of course, 10 directors are a lot of people, so let's have a look at the 
-titles. My theory was that it is TV shows and anthologies that end up with
+Ten directors are a lot of people -let's drill deeper for an understanding.
+My theory was that it is TV shows and anthologies that end up with
 so many directors. Unfortunately that does not seem to be supported by the data, 
 where most of those titles are movies. There is probably something to explore
 here.
@@ -316,17 +321,18 @@ title and the description. The title would not be a candidate for an analysis -
 it is a very high level description of what is happening in the text and thus 
 not good for a nuanced look at the show / movie. A description would also not be 
 a first choice of text to analyze, but at least a bit more of the plot is put in
-there, so we have a chance.
+there, so we have a chance of getting some insight.
 
 #### Sums of scores
 As a first try we have a look at the sum of numeric scores that are associated 
 with given words. We get these scores from the AFINN dataset.
 
 As we can expect, the scores tend to peak around 0, however with two separate 
-peaks. It could be interesting to try to tease out what are the characteristics 
+peaks. Perhaps we can tease out what are the characteristics 
 of the titles that are classified in one camp as opposed to the other.
 
 ```{r, message=FALSE}
+# TODO - cite everything correctly
 description_text <- data_in %>%
   unnest_tokens(word, description) %>%
   select(show_id, "word") %>%
@@ -344,8 +350,8 @@ ggplot(overall_sum_sentiments, aes(x = sentiment_score)) +
 ```
 
 One way of splitting these titles is by the category they are slotted in. 
-Notice that one title can have multiple associeated categories, so 
-this is not so cut and dry. The plot is a bit hard to read this way - most of 
+Notice that one title can have multiple associated categories, so 
+this is not cut and dry. The plot is a bit hard to read this way - most of 
 the categories seem to be on the same levels. However, there are a couple of 
 stand out ones. For example, the thriller category is almost always with a 
 negative score, while the stand up category is almost always positive. 
@@ -368,16 +374,20 @@ ggplot(categories_afinn, aes(x = categories, y = sentiment_score)) +
   geom_boxplot() +
   theme(axis.text.x = element_text(angle = 90)) +
   ggtitle("Scores per category")
+
+#TODO - do a  histogram of this as well
 ```
 
 One score is not very representative of a whole movie, especially since we are 
 calculating it on a description, rather than the whole script of the movie.
 That makes the numeric representation of the movie a very high-level
-representation of it and we expect a lot of details to get lost. 
+one and we expect a lot of details to get lost. 
 
-It is perhaps more illuminating to look at associated words,
-rather than associated numbers. For that we can use the NRC dataset, which shows
+We can also look at associated words, rather than associated numbers. 
+For that we can use the NRC dataset, which shows
 us whether a word is positive or negative without a specific grade associated. 
+The NRC dataset has more than tags for positive and negative words, covering 
+emotions like trust and anger.
 
 ```{r}
 description_text_nrc <- data_in %>%
