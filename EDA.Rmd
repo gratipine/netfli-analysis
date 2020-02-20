@@ -68,9 +68,8 @@ DT::datatable(head(data_in, 1))
 
 #### Checks
 Data from the internet (and in real life) is often messy / dirty. While the 
-columns of this one look relatively tidy and there are no duplicates / 
-stray ids for features / strangely named features of the shows, it is good to
-check at least two things:
+columns of this one look relatively tidy and there are no duplicated columns or 
+strangely named features of the shows, it is good to check at least two things:
 
 - do we have only one id per row? Generally id columns are safe from human 
 meddling and less error prone, but you never know. 
@@ -95,8 +94,8 @@ than the title.
 
 ## Analysis 
 
-There are several interesting questions we can answer with this data. First we
-will look at the ratings and their ditribution. 
+There are several questions this data can answer. The first ones concern the
+ratings and their ditribution. 
 
 **Disclaimer:**
 
@@ -113,7 +112,8 @@ However, this type of split is not ideal either, since some movies are made for
 TV and thus would have the TV ratings. To confound things further, there are 
 some titles without a rating at all (the first bar). For our sample their number 
 is `r nrow(data_in[rating == ""])`, which is not that high and we could
-probably jsut drop them if we are trying to use the ratings column. 
+probably jsut drop them if we are trying to use the ratings column in any 
+modeling. 
 
 In both categories the biggest number of titles are in the TV-14 and TV-MA
 categories, suggesting that:
@@ -121,11 +121,12 @@ categories, suggesting that:
 - most productions are classified using the TV type ratings
 
 - there is about an even split between shows targetted towards adults and 
-towards teenagers. Of course, this assumes that TV-14 titles are targetted 
+towards teenagers. I assume that TV-14 titles are targetted 
 towards teenagers, rather than simply allowed for them to view and not 
-recommended for under-14s. In that case most of our data is targetted at adults.
-This, coupled with some more detailed information about the categories of 
-the titles (niche horror, cheerleader movies) could tell us something about 
+recommended for under-14s. If teendagers are just allowed to view, but are not 
+the expected demographic group, most of our data is targetted at adults.
+We can combine this data with more detailed information about the categories of 
+the titles (niche horror, cheerleader movies) to learn something about 
 what sort of people watch Netflix.
 ```{r}
 ggplot(data_in, aes(x = rating, fill = type)) +
@@ -143,11 +144,11 @@ movies produced in the States than in the second most popular country - India -
 supports the previous argument. 
 
 It would be interesting to compare this to the countries of the viewers of 
-Netflix, if such data was available. Perhaps this US-centrism does not reflect 
-globalization of American culture to such an extent as it does the fact that 
-USA is the home country of Netflix? For example, if people in India tend to 
-watch mostly Indian movies, but not as many Indian people have signed up to the 
-service, that could help explain why the titles from there are fewer. 
+Netflix, if such data is available. Perhaps this US-centrism does not reflect 
+globalization of American culture but rather that the USA is the home country 
+of Netflix and that's where most of the customers are? If people in India tend
+to watch mostly Indian movies, but not as many Indian people have signed up to
+the service, that could help explain why the titles from there are fewer. 
 
 ```{r}
 countries <- data_in %>%
