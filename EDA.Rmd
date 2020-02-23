@@ -6,9 +6,8 @@ output: html_document
 ## Overview
 Netflix has become a staple of entertainment for many households across the
 world. As such it shapes what those households have access to in terms of 
-culture. This markdown will have a look at some of the features of a Netflix 
-dataset that was released on Kaggle to see what are some of the features of 
-the service provided. 
+culture. This exploratory data analysis will have a look at some of the
+features of a Netflix dataset that was released on Kaggle to see what are some of the characteristics of the service provided. 
 
 ## Data source
 https://www.kaggle.com/shivamb/netflix-shows
@@ -67,9 +66,8 @@ DT::datatable(head(data_in, 1))
 ```
 
 #### Checks
-Data from the internet (and in real life) is often messy / dirty. While the 
-columns of this one look relatively tidy and there are no duplicates / 
-stray ids for features / strangely named features of the shows, it is good to
+Data from the internet (and in real life) is often messy or dirty. While the 
+columns of this one look relatively tidy and there are no duplicated columns or strangely named features of the shows, it is good to
 check at least two things:
 
 - do we have only one id per row? Generally id columns are safe from human 
@@ -95,7 +93,7 @@ than the title.
 
 ## Analysis 
 
-There are several interesting questions we can answer with this data. First we
+There are several questions we can answer with this data. First we
 will look at the ratings and their ditribution. 
 
 **Disclaimer:**
@@ -188,8 +186,7 @@ than 20 titles to their name. While that does not seem that much given the size
 of the dataset, it feels like a lot of titles to have in such a diverse set.
 
 Surprisingly, there is no Western representation - all the actors appear to be 
-of Asian heritage, judging just from the names, with a heavy representation from
-Bollywood actors. I was a bit surprised to find that the two Japanese names on 
+of Asian heritage, judging from the names and some quick googling, with a heavy representation from Bollywood actors. I was a bit surprised to find that the two Japanese names on 
 the list are of voice actors, even though that makes sense - Japan creates a lot
 of animated movies / TV series.
 ```{r, fig.width=12}
@@ -217,8 +214,9 @@ counted_titles_per_actor %>%
 
 Having a look at how many actors each title has is also interesting. There is a 
 nice bell curve around 8 - 10, with another peak around 1. We can read this 
-as most productions tend to have about 10 actors quoted, but we also have a
-large number of titles (possibly stand ups) that are quoted with only one 
+as most productions tend to have about 10 actors quoted in the description (as 
+headliners), but we also have a
+large number of titles (possibly stand ups) that are list only one 
 person. 
 
 Keep in mind that for some titles we have no actors - 
@@ -238,10 +236,10 @@ Of course, a movie does not exists with only actors - there are a lot more
 people involved in the production and one of the roles is that of the director.
 
 The same look at most popular directors defined by associated titles yields
-different results and not jsut because of the names. To start with, the number
+different results and not just because of the names. To start with, the number
 of associated titles is a lot fewer than for the actors. Additionally,
-there is a bit more of a  varied representation, including one person with a
-traditionally female name. Perhaps being behind the camera allows access to 
+there is a bit more of a varied representation, including one person with a
+(traditionally) female name. Perhaps being behind the camera allows access to 
 a more diverse set of people? Or perhaps, given the number of niches available 
 in Netflix, if you find yourself a niche you like you can direct a lot of works
 there?
@@ -271,11 +269,9 @@ At the same time, having 20 titles associated with your name carries a different
 weight if you were the only director as opposed to if you were a director in
 a big group. To give us a few details, here is what the distribution of number 
 of directors associated with a title looks like. Plotting this on a logged scale 
-makes it a bit easier to see where we actually have values and where we 
-potentially don't. Note that we have
-some titles with more than 10 directors. While there are a lot of TV series
+makes it a bit easier to see where we actually have values and where we don't. Note that some titles have more than 10 directors. There are a lot of TV series
 in the dataset, which could in theory have a different director for each 
-episode, it was still a bit of a surprise to me. 
+episode. We can test that theory by checking what percentage of the titles with a lot of associated directors are associated with movies as opposed to TV series.
 
 ```{r}
 count_directors_per_title <- titles_by_directors[, .N, .(show_id, title)]
@@ -284,20 +280,30 @@ ggplot(count_directors_per_title, aes(x = N)) +
   scale_y_log10()
 ```
 
-Ten directors are a lot of people -let's drill deeper for an understanding.
-My theory was that it is TV shows and anthologies that end up with
-so many directors. Unfortunately that does not seem to be supported by the data, 
-where most of those titles are movies. There is probably something to explore
-here.
 
 ```{r}
-movie_titles <- count_directors_per_title[N > 4, c("title", "show_id", "N")]
+movie_titles <- count_directors_per_title[N > 2, c("title", "show_id", "N")]
 
-DT::datatable(merge(data_in, movie_titles, by = c("show_id", "title"))[
-  , c("title", "show_id", "type", "N")])
+lots_of_directors <- merge(data_in, movie_titles, by = c("show_id", "title"))[
+  , c("title", "show_id", "type", "N")]
 
+total_numbers_type <- data_in[, .N, .(type)]
+
+lots_of_directors <- merge(lots_of_directors, total_numbers_type, 
+                           by = "type", suffixes = c("", "_total"))
+
+lots_of_directors[, perc_total := N / N_total]
+
+ggplot(lots_of_directors, aes(x = N, fill = type)) +
+  geom_histogram() +
+  facet_wrap(~type)
 ```
 
+As a persentage of the total number of productions in each category, the 
+ones with more than two directors comprise
+```{r}
+lots_of_directors[, sum(perc_total), .(type)]
+```
 It is important to mention that there are productions in this data set without
 directors. To be precise, they represent
 `r round(nrow(data_in[director == ""]) / nrow(data_in) * 100, 2)`%
