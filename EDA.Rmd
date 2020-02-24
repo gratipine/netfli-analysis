@@ -375,6 +375,52 @@ ggplot(counted_countries_title, aes(x = N, fill = international)) +
   ggtitle("Number of producing countries for international and otherwise")
 ```
 
+##### Most niche groups
+It is curious to see if certain groups are structured in such a way that shows in them are not listed in many more groups.
+```{r}
+number_of_categories_per_show <- categories_short[, .N, .(show_id)]
+
+categories_with_counts <- merge(
+  categories_short, number_of_categories_per_show)
+
+categories_with_counts[, percentage_of_categories := 1 / N]
+mean_per_category <- categories_with_counts[
+  , .(percentage_of_categories = mean(percentage_of_categories)), .(categories)]
+
+
+ggplot(mean_per_category[percentage_of_categories > 0.5],
+       aes(x = categories, y = percentage_of_categories)) +
+  geom_point() +
+  ggtitle("Most niche categories (appearing on their own most of the time")
+
+```
+
+- correlations of the categories
+```{r}
+ggplot(categories, aes(x = categories, y = categories)) +
+  geom_point()
+
+
+# run correlations on the dummified categories
+dmy <- dummyVars(" ~ .", data = categories[, .(show_id, categories)])
+one_hot_encoded <- data.table(predict(dmy, newdata = categories))
+one_hot_encoded[, .(lapply(.SD, sum)), .(show_id)]
+
+one_hot_encoded <- one_hot_encoded %>%
+  group_by(show_id) %>%
+  summarise_each(funs(sum))
+
+new_names <- gsub("categories", "", names(one_hot_encoded))
+setnames(one_hot_encoded, names(one_hot_encoded), new_names)
+
+correlations <- cor(one_hot_encoded[, -1])
+corrplot::corrplot(correlations, method = "number")
+```
+
+The correlations plot is very bare - overall we rarely have something that 
+correlates even at 40%, nevermind higher strength correlations.
+
+
 
 ### Sentiment analysis of the descriptions
 
@@ -530,76 +576,6 @@ ggplot(categories_nrc[
 
 ```
 
-#### Just for fun - inverse frequency
-
-- inverse frequency on the description
-```{r}
-text <- data_in %>%
-  unnest_tokens(word, description) %>%
-  select(show_id, title, word) %>%
-  anti_join(stop_words)
-
-word_tf_idf <- text %>%
-  count(show_id, word) %>%
-  bind_tf_idf(word, show_id, n) %>%
-  arrange(desc(tf_idf))
-
-word_tf_idf %>%
-  mutate(word = factor(word, levels = rev(unique(word)))) %>%
-  arrange(desc(tf_idf)) %>%
-  top_n(15) %>%
-  ggplot(aes(word, tf_idf, fill = show_id)) +
-  geom_col(show.legend = TRUE) +
-  labs(x = NULL, y = "tf-idf") +
-  coord_flip() +
-  ggtitle("The 15 rarest words in the dataset")
-
-```
-
-- most niche groups - the shows in them are not listed in many more groups on 
-average
-```{r}
-number_of_categories_per_show <- categories_short[, .N, .(show_id)]
-
-categories_with_counts <- merge(
-  categories_short, number_of_categories_per_show)
-
-categories_with_counts[, percentage_of_categories := 1 / N]
-mean_per_category <- categories_with_counts[
-  , .(percentage_of_categories = mean(percentage_of_categories)), .(categories)]
-
-
-ggplot(mean_per_category[percentage_of_categories > 0.5],
-       aes(x = categories, y = percentage_of_categories)) +
-  geom_point() +
-  ggtitle("Most niche categories (appearing on their own most of the time")
-
-```
-
-- correlations of the categories
-```{r}
-ggplot(categories, aes(x = categories, y = categories)) +
-  geom_point()
-
-
-# run correlations on the dummified categories
-dmy <- dummyVars(" ~ .", data = categories[, .(show_id, categories)])
-one_hot_encoded <- data.table(predict(dmy, newdata = categories))
-one_hot_encoded[, .(lapply(.SD, sum)), .(show_id)]
-
-one_hot_encoded <- one_hot_encoded %>%
-  group_by(show_id) %>%
-  summarise_each(funs(sum))
-
-new_names <- gsub("categories", "", names(one_hot_encoded))
-setnames(one_hot_encoded, names(one_hot_encoded), new_names)
-
-correlations <- cor(one_hot_encoded[, -1])
-corrplot::corrplot(correlations, method = "number")
-```
-
-The correlations plot is very bare - overall we rarely have something that 
-correlates even at 40%, nevermind higher strength correlations.
 
 - how does the distribution of movies change over time - movies produced in 
 different countries added in 
