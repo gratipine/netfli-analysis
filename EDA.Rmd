@@ -324,6 +324,15 @@ countries or because they are shown in multiple different countries? (Netflix
 did have different showings depending on what country you are looking at)
 
 ```{r}
+categories <- data_in %>%
+  mutate(categories = strsplit(listed_in, ", ")) %>%
+  unnest(categories) %>%
+  mutate(categories = strsplit(categories, ",")) %>%
+  unnest(categories) %>%
+  data.table()
+
+categories_short <- unique(categories[, .(categories, show_id, title)])
+
 categories %>%
   group_by(type) %>%
   count(categories) %>%
@@ -377,7 +386,13 @@ ggplot(counted_countries_title, aes(x = N, fill = international)) +
 
 ##### Most niche groups
 It is curious to see if certain groups are structured in such a way that shows in them are not listed in many more groups.
-```{r}
+
+From the plot below we can see that:
+
+- Stand-up comedy is a class of its own typically
+
+- Movies and TV Shows are catch all categories when no other can be applied. 
+```{r} 
 number_of_categories_per_show <- categories_short[, .N, .(show_id)]
 
 categories_with_counts <- merge(
@@ -388,19 +403,15 @@ mean_per_category <- categories_with_counts[
   , .(percentage_of_categories = mean(percentage_of_categories)), .(categories)]
 
 
-ggplot(mean_per_category[percentage_of_categories > 0.5],
+ggplot(mean_per_category[percentage_of_categories > 0.6],
        aes(x = categories, y = percentage_of_categories)) +
-  geom_point() +
+  geom_col(fill = "#FF6666") +
   ggtitle("Most niche categories (appearing on their own most of the time")
 
 ```
 
 - correlations of the categories
 ```{r}
-ggplot(categories, aes(x = categories, y = categories)) +
-  geom_point()
-
-
 # run correlations on the dummified categories
 dmy <- dummyVars(" ~ .", data = categories[, .(show_id, categories)])
 one_hot_encoded <- data.table(predict(dmy, newdata = categories))
@@ -468,15 +479,6 @@ negative score, while the stand up category is almost always positive.
 
 
 ```{r, fig.height = 10}
-categories <- data_in %>%
-  mutate(categories = strsplit(listed_in, ", ")) %>%
-  unnest(categories) %>%
-  mutate(categories = strsplit(categories, ",")) %>%
-  unnest(categories) %>%
-  data.table()
-
-categories_short <- unique(categories[, .(categories, show_id, title)])
-
 categories_afinn <- merge(
   categories_short, overall_sum_sentiments, by = "show_id")
 
@@ -577,11 +579,14 @@ ggplot(categories_nrc[
 ```
 
 
+### Time series
+
+Over time movies produced in different countries are added in. 
+
 - how does the distribution of movies change over time - movies produced in 
 different countries added in 
 
 ```{r}
-titles_by_countries
 count_name_by_date_country <- titles_by_countries[
   , .N, .(symbols, year(date_added))]
 
@@ -595,6 +600,7 @@ count_name_by_date_country %>%
   ggtitle("Additions of shows and movies by year per country (log 10)")
 
 ```
+
 
 - TV shows against movies over time
 ```{r}
