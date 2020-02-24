@@ -111,7 +111,7 @@ However, this type of split is not ideal either, since some movies are made for
 TV and thus would have the TV ratings. To confound things further, there are 
 some titles without a rating at all (the first bar). For our sample their number 
 is `r nrow(data_in[rating == ""])`, which is not that high and we could
-probably jsut drop them if we are trying to use the ratings column. 
+probably just drop them if we are trying to use the ratings column. 
 
 In both categories the biggest number of titles are in the TV-14 and TV-MA
 categories, suggesting that:
@@ -293,19 +293,18 @@ lots_of_directors <- merge(lots_of_directors, total_numbers_type,
                            by = "type", suffixes = c("", "_total"))
 
 lots_of_directors[, perc_total := N / N_total]
-
-ggplot(lots_of_directors, aes(x = N, fill = type)) +
-  geom_histogram() +
-  facet_wrap(~type)
 ```
 
 As a persentage of the total number of productions in each category, the 
-ones with more than two directors comprise
-```{r}
-lots_of_directors[, sum(perc_total), .(type)]
-```
-It is important to mention that there are productions in this data set without
-directors. To be precise, they represent
+ones with more than two directors comprise 
+`r round(lots_of_directors[type == "Movie", sum(perc_total)] * 100, 2)`% of the 
+movies in the dataset and
+`r round(lots_of_directors[type == "TV Show", sum(perc_total)] * 100, 2)`% of 
+the TV shows, which supports the theory that the outliers in terms of directors 
+ are present more on the movie side.
+
+Here is a good place to mention that there are productions in this data set without
+directors at all. To be precise, they represent
 `r round(nrow(data_in[director == ""]) / nrow(data_in) * 100, 2)`%
 of the total dataset. 
 Missing values can be sometimes imputed, but in this case there is nothing we
@@ -317,6 +316,65 @@ our two choices would be:
 
 - drop the column
 
+#### Categories
+Plotting the most popular categories yields some surprises - there are a 
+lot of international shows and iinternational movies. Is this a catch-all 
+category? Are they international because they have been produced in many 
+countries or because they are shown in multiple different countries? (Netflix 
+did have different showings depending on what country you are looking at)
+
+```{r}
+categories %>%
+  group_by(type) %>%
+  count(categories) %>%
+  arrange(desc(n)) %>%
+  group_by(type) %>%
+  top_n(5) %>%
+  ungroup() %>%
+  arrange(desc(n)) %>%
+  ggplot(aes(x = categories, y = n, fill = categories)) +
+  geom_col() +
+  facet_wrap(~type, scales = "free") +
+  theme(axis.text.x = element_text(angle = 45)) +
+  ggtitle("Count of titles in each category for top 5 categories")
+
+```
+As you can see from the plot below, productions labelled as international do not
+have significantly different number of producing countries than ones who are 
+not international. We can conclude that that is not the answer. Some other alternatives that we could try if we wanted 
+to find the answer programmatically and from the data are:
+
+- check the first production country. Perhaps if it is different from USA, it is 
+tagged as international?
+
+- do an analysis of the names of the people involved. Perhaps having a foreign 
+director explains it?
+
+- check distribution of the movies - the more countries they are shown in, the 
+more likely they are to be tagged international?
+
+While we can do that, we can also do a quick search of what it means.
+Sometimes just a bit of domain knowlegde can save us a lot of time. 
+In this case my first stop would be the Netflix website / help. It seems like 
+we are talking about productions from other countries, with foreign cast and 
+sometimes in a foreign language.
+
+
+```{r}
+international_titles <- categories[
+  categories %in% c("International TV Shows", "International Movies"), show_id]
+
+counted_countries_title <- countries[, .N, .(show_id)]
+
+counted_countries_title[show_id %in% international_titles, 
+                        international := TRUE]
+counted_countries_title[is.na(international), international := FALSE]
+
+ggplot(counted_countries_title, aes(x = N, fill = international)) +
+  geom_bar(position = position_dodge(preserve = 'single')) +
+  ggtitle("Number of producing countries for international and otherwise")
+```
+
 
 ### Sentiment analysis of the descriptions
 
@@ -324,7 +382,8 @@ When doing sentiment analysis, we are trying to quantify what are the associated
 emotions with a given text. In this data set we have two sources of text - the
 title and the description. The title would not be a candidate for an analysis - 
 it is a very high level description of what is happening in the text and thus 
-not good for a nuanced look at the show / movie. A description would also not be 
+not good for a nuanced look at the show / movie. A description would also not
+be 
 a first choice of text to analyze, but at least a bit more of the plot is put in
 there, so we have a chance of getting some insight.
 
@@ -333,7 +392,7 @@ As a first try we have a look at the sum of numeric scores that are associated
 with given words. We get these scores from the AFINN dataset.
 
 As we can expect, the scores tend to peak around 0, however with two separate 
-peaks. Perhaps we can tease out what are the characteristics 
+peaks. LEt's try to tease out what are the characteristics 
 of the titles that are classified in one camp as opposed to the other.
 
 ```{r, message=FALSE}
@@ -380,17 +439,30 @@ ggplot(categories_afinn, aes(x = categories, y = sentiment_score)) +
   theme(axis.text.x = element_text(angle = 90)) +
   ggtitle("Scores per category")
 
-#TODO - do a  histogram of this as well
-```
-```{r}
-top_n_categories <- 5
+top_n_categories <- 7
 
+```
+
+A better look at this is given by a density plot by the category. We are 
+plotting the top `r top_n_categories` categories for each type of show.
+From here we can see that:
+
+- There is a very clear difference between what the TV categories look like
+and what the movie categories look like. The TV ones seem to have an even 
+split of positive and negative categories, with international TV shows 
+straddling the middle. The movies, on the other hand, are slotted in the 
+negative categories. 
+
+- Categories are not very clearly cut - Kids shows, for example, are widely 
+spread across a range of scores. 
+
+```{r}
 top_n_cat_df <- categories %>%
   group_by(type) %>%
   count(categories) %>%
   arrange(desc(n)) %>%
   group_by(type) %>%
-  top_n(5) %>%
+  top_n(top_n_categories) %>%
   ungroup() %>%
   arrange(desc(n))
 
@@ -404,15 +476,17 @@ ggplot(for_plot,
   ggtitle("Scores per category") +
   facet_wrap(~type, scales = "free")
 ```
-One score is not very representative of a whole movie, especially since we are 
+
+#### NRC codings
+While these are curious observations, one score is not very representative of a whole movie. That is especially true since we are 
 calculating it on a description, rather than the whole script of the movie.
-That makes the numeric representation of the movie a very high-level
+The numeric representation of the movie is a high-level
 one and we expect a lot of details to get lost. 
 
 We can also look at associated words, rather than associated numbers. 
 For that we can use the NRC dataset, which shows
 us whether a word is positive or negative without a specific grade associated. 
-The NRC dataset has more than tags for positive and negative words, covering 
+The NRC dataset has more tags for positive and negative words, covering 
 emotions like trust and anger.
 
 ```{r}
@@ -428,13 +502,13 @@ categories_nrc <- merge(categories_short, description_text_nrc, by = "show_id",
 ```
 
 
-Let's have a look at what the distributions are. We have a lot of categories, 
+The distributions are of those second scores are interesting. We have a lot of 
+categories, 
 some of them duplicating for movies and TV shows. For ease of access, let's 
 have a look at the categories separately.
 
-This look for the most part confirms the conclusions from the previous one,
-with the surprise of reality TV for me. Surely it is not that positive of a 
-genre?
+This split of the data confirms the conclusions from the previous plots, 
+although I was surprised by the score of reality TV. Surely it is not that positive of a genre?
 ```{r}
 categories_nrc <- merge(categories_nrc, data_in[, .(show_id, type)])
 
@@ -456,62 +530,7 @@ ggplot(categories_nrc[
 
 ```
 
-
-Plotting the most popular categories also yields some surprises - there are a 
-lot of international shows and iinternational movies. Is this a catch-all 
-category? Are they international because they have been produced in many 
-countries or because they are shown in multiple different countries? (Netflix 
-did have different showings depending on what country you are looking at)
-
-```{r}
-categories %>%
-  group_by(type) %>%
-  count(categories) %>%
-  arrange(desc(n)) %>%
-  group_by(type) %>%
-  top_n(5) %>%
-  ungroup() %>%
-  arrange(desc(n)) %>%
-  ggplot(aes(x = categories, y = n, fill = categories)) +
-  geom_col() +
-  facet_wrap(~type, scales = "free") +
-  theme(axis.text.x = element_text(angle = 45)) +
-  ggtitle("Count of titles in each category for top 5 categories")
-
-```
-The counts are not that different when we look at the producing country, so 
-probably that is not it. Some other alternatives that we could try if we wanted 
-to find the answer this way are:
-
-- check the first production country. Perhaps if it is different from USA, it is 
-tagged as international?
-
-- do an analysis of the names of the people involved. Perhaps having a foreign 
-director explains it?
-
-- check distribution of the movies - the more countries they are shown in, the 
-more likely they are to be tagged international?
-
-Of course, we can go down the route of programmatically figuring this out, but
-sometimes just a bit of domain knowlegde can save us a lot of time. 
-In this case my first stop would be the Netflix website / help/
-
-
-```{r}
-international_titles <- categories[
-  categories %in% c("International TV Shows", "International Movies"), show_id]
-
-counted_countries_title <- countries[, .N, .(show_id)]
-
-counted_countries_title[show_id %in% international_titles, 
-                        international := TRUE]
-counted_countries_title[is.na(international), international := FALSE]
-
-ggplot(counted_countries_title, aes(x = N, fill = international)) +
-  geom_histogram() +
-  ggtitle("Number of producing countries for internationa and otherwise")
-```
-
+#### Just for fun - inverse frequency
 
 - inverse frequency on the description
 ```{r}
