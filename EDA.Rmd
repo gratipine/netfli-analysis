@@ -62,7 +62,11 @@ data_in[date_added == "",
 
 data_in[, date_added := as.Date(date_added, format = "%B %d,%Y")]
 
-DT::datatable(head(data_in, 1))
+print("Skipping the description and the cast, since they have a lot of data in them")
+
+DT::datatable(head(data_in[
+  , c("show_id",	"type",	"title",	"director",	"country",	"date_added",
+      "release_year",	"rating",	"duration",	"listed_in")], 3))
 ```
 
 #### Checks
@@ -303,7 +307,7 @@ ones with more than two directors comprise
 movies in the dataset and
 `r round(lots_of_directors[type == "TV Show", sum(perc_total)] * 100, 2)`% of 
 the TV shows, which supports the theory that the outliers in terms of directors 
- are present more on the movie side.
+are present more on the movie side.
 
 Here is a good place to mention that there are productions in this data set without
 directors at all. To be precise, they represent
@@ -582,7 +586,8 @@ ggplot(categories_nrc[
 
 
 ### Time series
-
+We could do some time series analysis here as well. Our data is dated - we have 
+information for when a certain.
 Over time movies produced in different countries are added in. 
 
 - how does the distribution of movies change over time - movies produced in 
