@@ -3,29 +3,18 @@ title: "EDA"
 output: html_document
 ---
 
-## Overview
+### Overview
 Netflix has become a staple of entertainment for many households across the
 world. As such it shapes what those households have access to in terms of 
 culture. This exploratory data analysis will have a look at some of the
 features of a Netflix dataset that was released on Kaggle to see what are some of the characteristics of the service provided. 
 
-## Data source
-https://www.kaggle.com/shivamb/netflix-shows
+The data source used for the analysis can be found in 
+[this Kaggle link|https://www.kaggle.com/shivamb/netflix-shows]
 
+### Libraries used
 
-
-## Setup
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_chunk$set(fig.width = 12)
-knitr::opts_chunk$set(warning = FALSE)
-knitr::opts_chunk$set(message = FALSE)
-
-```
-
-## Libraries used
-
-```{r loading_libraries}
+```{r loading_libraries, echo=FALSE, warning=FALSE, message=FALSE, echo=TRUE}
 library(ggplot2)
 library(data.table)
 library(DT)
@@ -35,6 +24,15 @@ library(tidytext)
 library(caret)
 ```
 
+
+### Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(fig.width = 12)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+
+```
 ```{r set_ggplot_theme}
 large_font_size <- theme(axis.text.x = element_text(size = 14),
                          axis.title.x = element_text(size = 14),
@@ -44,7 +42,7 @@ large_font_size <- theme(axis.text.x = element_text(size = 14),
 
 ```
 
-## Data in 
+### Data in 
 ```{r, eval = FALSE}
 unzip("netflix-shows.zip")
 ```
@@ -75,16 +73,17 @@ columns of this one look relatively tidy and there are no duplicated columns or
 strangely named features of the shows, it is good to check at least two things:
 
 - do we have only one id per row? Generally id columns are safe from human 
-meddling and less error prone, but you never know. 
+meddling and less error prone, but you never know. In this case it is 
+`r length(unique(data_in$show_id)) == nrow(data_in)`
 
-```{r}
+```{r, echo=FALSE}
 length(unique(data_in$show_id)) == nrow(data_in)
 ```
 
 - do we have duplicate names? It is useful to have a look at this by type as
 well since it is a practice to have a movie followed by a show of the same name.
 
-```{r}
+```{r, echo=FALSE}
 counted_titles <- data_in[, .N, .(title, type)]
 setorder(counted_titles, -N)
 
@@ -98,23 +97,21 @@ than the title.
 ## Analysis 
 
 There are several questions this data can answer. The first ones concern the
-ratings and their ditribution. 
+ratings and their distribution. 
 
 **Disclaimer:**
 
 Given that we will not be
 doing any modeling with the data, we will be using all of it in our exploration.
-If we were planning to, for example, try to predict categories using 
-the description, we would have to split this data into test / train 
-datasets as a first step before we do any exploration. 
+
 
 #### Ratings
 Some of our titles are rated TV-* and some have the typical ratings that
-are associated with movies. This is why we split them by type of medium.
-However, this type of split is not ideal either, since some movies are made for
-TV and thus would have the TV ratings. To confound things further, there are 
-some titles without a rating at all (the first bar). For our sample their number 
-is `r nrow(data_in[rating == ""])`, which is not that high and we could
+are associated with movies. Because of that we should split them by type of
+medium. Just going with the type column might not be ideal - some movies 
+are made for TV and thus would have the TV ratings. Additionally, there are 
+some titles without a rating at all (the first bar). For our sample their
+number is `r nrow(data_in[rating == ""])`, which is not that high and we could
 probably just drop them if we are trying to use the ratings column in any 
 modeling. 
 
@@ -123,13 +120,13 @@ categories, suggesting that:
 
 - most productions are classified using the TV type ratings
 
-- there is about an even split between shows targetted towards adults and 
-towards teenagers. I assume that TV-14 titles are targetted 
+- there is about an even split between shows targeted towards adults and 
+towards teenagers. I assume that TV-14 titles are targeted 
 towards teenagers, rather than simply allowed for them to view and not 
-recommended for under-14s. If teendagers are just allowed to view, but are not 
-the expected demographic group, most of our data is targetted at adults.
-We can combine this data with more detailed information about the categories of 
-the titles (niche horror, cheerleader movies) to learn something about 
+recommended for under-14s. If teenagers are just allowed to view, but are not 
+the targeted demographic group, most of our data is targeted at adults.
+We could combine this data with more detailed information about the categories 
+of the titles (niche horror, cheerleader movies) to learn something about 
 what sort of people watch Netflix.
 ```{r}
 ggplot(data_in, aes(x = rating, fill = type)) +
@@ -141,7 +138,7 @@ ggplot(data_in, aes(x = rating, fill = type)) +
 #### Country where a title was produced
 
 Quite a lot of movies are produced / created in the United States. That makes 
-sense from the point of view that the Western / Hollywood culture has been 
+sense given that the Western / Hollywood culture has been 
 overtaking movie production. The fact that we have a three times more
 movies produced in the States than in the second most popular country - India -
 supports the previous argument. 
@@ -210,9 +207,16 @@ titles_by_actors <- actors[, .(show_id, title, cast)]
 counted_titles_per_actor <- titles_by_actors[, .(counts = .N), .(cast)]
 setorder(counted_titles_per_actor, -counts)
 
+counted_titles_per_actor$cast <- factor(
+  counted_titles_per_actor$cast,
+  levels = counted_titles_per_actor$cast[
+    order(counted_titles_per_actor$counts, decreasing = FALSE)])
+
 counted_titles_per_actor %>%
   top_n(top_n_actors) %>%
   ggplot(aes(x = cast, y = counts)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
   geom_col(fill = "#FF6666") +
   ggtitle(sprintf("Most popular %s actors by number of productions they have been in", top_n_actors))
 
@@ -247,8 +251,8 @@ of associated titles is a lot fewer than for the actors. Additionally,
 there is a bit more of a varied representation, including one person with a
 (traditionally) female name. Perhaps being behind the camera allows access to 
 a more diverse set of people? Or perhaps, given the number of niches available 
-in Netflix, if you find yourself a niche you like you can direct a lot of works
-there?
+in Netflix, if you find yourself a niche you like you can direct a lot of 
+projects there?
 
 ```{r}
 directors <- data_in %>%
@@ -264,10 +268,18 @@ counted_titles_per_directors <- titles_by_directors[
   , .(counts = .N), .(director)]
 setorder(counted_titles_per_directors, -counts)
 
+counted_titles_per_directors$director <- factor(
+  counted_titles_per_directors$director,
+  levels = counted_titles_per_directors$director[
+    order(counted_titles_per_directors$counts, decreasing = FALSE)])
+
 counted_titles_per_directors %>%
   top_n(10) %>%
   ggplot(aes(x = director, y = counts)) +
-  geom_col(fill = "#FF6666")
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  geom_col(fill = "#FF6666") +
+  ggtitle("Most popular directors overall")
 
 ```
 
@@ -283,7 +295,10 @@ episode. We can test that theory by checking what percentage of the titles with 
 count_directors_per_title <- titles_by_directors[, .N, .(show_id, title)]
 ggplot(count_directors_per_title, aes(x = N)) +
   geom_histogram(fill = "#FF6666") +
-  scale_y_log10()
+  scale_y_log10() +
+  ggtitle("Logged histogram of number of directors per project") +
+  xlab("Number of directors") +
+  ylab("logged count of projects")
 ```
 
 
@@ -313,14 +328,16 @@ Here is a good place to mention that there are productions in this data set with
 directors at all. To be precise, they represent
 `r round(nrow(data_in[director == ""]) / nrow(data_in) * 100, 2)`%
 of the total dataset. 
-Missing values can be sometimes imputed, but in this case there is nothing we
-can really do about this lack besides be aware of it and try to take it into 
-account when modelling. In this case, given how many values we are missing, 
+Missing values can be sometimes imputed, but in this case we cannot use
+statistical methods. We need to be aware of this lack and try to take it into 
+account when modelling. Given how many values we are missing, 
 our two choices would be:
 
 - find a supplementary dataset / scrape some additional data
 
 - drop the column
+
+
 
 #### Categories
 Plotting the most popular categories yields some surprises - there are a 
