@@ -24,8 +24,6 @@ library(tidytext)
 library(caret)
 ```
 
-
-### Setup
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 knitr::opts_chunk$set(fig.width = 12)
@@ -43,6 +41,8 @@ large_font_size <- theme(axis.text.x = element_text(size = 14),
 ```
 
 ### Data in 
+
+The data is in the format below, skipping the columns for description and cast since they are quite long.
 ```{r, eval = FALSE}
 unzip("netflix-shows.zip")
 ```
@@ -60,8 +60,6 @@ data_in[date_added == "",
 
 data_in[, date_added := as.Date(date_added, format = "%B %d,%Y")]
 
-print("Skipping the description and the cast, since they have a lot of data in them")
-
 DT::datatable(head(data_in[
   , c("show_id",	"type",	"title",	"director",	"country",	"date_added",
       "release_year",	"rating",	"duration",	"listed_in")], 3))
@@ -74,27 +72,21 @@ strangely named features of the shows, it is good to check at least two things:
 
 - do we have only one id per row? Generally id columns are safe from human 
 meddling and less error prone, but you never know. In this case it is 
-`r length(unique(data_in$show_id)) == nrow(data_in)`
-
-```{r, echo=FALSE}
-length(unique(data_in$show_id)) == nrow(data_in)
-```
-
-- do we have duplicate names? It is useful to have a look at this by type as
-well since it is a practice to have a movie followed by a show of the same name.
+`r tolower(as.character(length(unique(data_in$show_id)) == nrow(data_in)))`
 
 ```{r, echo=FALSE}
 counted_titles <- data_in[, .N, .(title, type)]
 setorder(counted_titles, -N)
 
 ```
-
+- do we have duplicate names? It is useful to have a look at this by type as
+well since it is a practice to have a movie followed by a show of the same name.
 We have `r nrow(counted_titles[N > 1])` titles in total that have been repeated.
 For this reason when we are interested in number of something per group (actors,
 words in description and so on), we should be grouping by the show_id rather
 than the title.
 
-## Analysis 
+### Analysis 
 
 There are several questions this data can answer. The first ones concern the
 ratings and their distribution. 
@@ -108,12 +100,13 @@ doing any modeling with the data, we will be using all of it in our exploration.
 #### Ratings
 Some of our titles are rated TV-* and some have the typical ratings that
 are associated with movies. Because of that we should split them by type of
-medium. Just going with the type column might not be ideal - some movies 
+medium. Keep in mind thought that just going with the type column might not be
+ideal - some movies 
 are made for TV and thus would have the TV ratings. Additionally, there are 
 some titles without a rating at all (the first bar). For our sample their
 number is `r nrow(data_in[rating == ""])`, which is not that high and we could
-probably just drop them if we are trying to use the ratings column in any 
-modeling. 
+probably just drop those observations if we are trying to use the ratings column
+in any modeling. 
 
 In both categories the biggest number of titles are in the TV-14 and TV-MA
 categories, suggesting that:
@@ -169,12 +162,19 @@ titles_by_countries <- countries[, .(title, show_id, symbols, date_added)]
 counted_titles_per_country <- titles_by_countries[, .(counts = .N), .(symbols)]
 setorder(counted_titles_per_country, -counts)
 
+counted_titles_per_country$symbols <- factor(
+  counted_titles_per_country$symbols,
+  levels = counted_titles_per_country$symbols[
+    order(counted_titles_per_country$counts, decreasing = FALSE)])
+
+
 counted_titles_per_country %>%
   top_n(15) %>%
   ggplot(aes(x = symbols, y = counts)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
   geom_col(fill = "#FF6666") +
   large_font_size +
-  theme(axis.text.x = element_text(angle = 90)) +
   ggtitle("Productions associated with each country")
 
 top_n_actors <- 10
@@ -186,10 +186,13 @@ top_n_actors <- 10
 It is quite telling to have a look most popular actors as defined by how many
 titles they appear in. The top `r top_n_actors` in the dataset all have more 
 than 20 titles to their name. While that does not seem that much given the size
-of the dataset, it feels like a lot of titles to have in such a diverse set.
+of the dataset, it feels like a lot of projects to have to your name in such a
+diverse set.
 
 Surprisingly, there is no Western representation - all the actors appear to be 
-of Asian heritage, judging from the names and some quick googling, with a heavy representation from Bollywood actors. I was a bit surprised to find that the two Japanese names on 
+of Asian heritage, judging from the names and some quick googling, with a heavy
+representation from Bollywood actors. I was a bit surprised to find that the two
+Japanese names on 
 the list are of voice actors, even though that makes sense - Japan creates a lot
 of animated movies / TV series.
 ```{r, fig.width=12}
@@ -303,6 +306,7 @@ ggplot(count_directors_per_title, aes(x = N)) +
 
 
 ```{r}
+
 movie_titles <- count_directors_per_title[N > 2, c("title", "show_id", "N")]
 
 lots_of_directors <- merge(data_in, movie_titles, by = c("show_id", "title"))[
@@ -368,6 +372,7 @@ categories %>%
   geom_col() +
   facet_wrap(~type, scales = "free") +
   theme(axis.text.x = element_text(angle = 45)) +
+  scale_fill_grey(start = 0, end = .9) + 
   ggtitle("Count of titles in each category for top 5 categories")
 
 ```
@@ -404,6 +409,7 @@ counted_countries_title[is.na(international), international := FALSE]
 
 ggplot(counted_countries_title, aes(x = N, fill = international)) +
   geom_bar(position = position_dodge(preserve = 'single')) +
+  scale_fill_grey(start = 0, end = .5) + 
   ggtitle("Number of producing countries for international and otherwise")
 ```
 
@@ -425,9 +431,13 @@ categories_with_counts[, percentage_of_categories := 1 / N]
 mean_per_category <- categories_with_counts[
   , .(percentage_of_categories = mean(percentage_of_categories)), .(categories)]
 
-
-ggplot(mean_per_category[percentage_of_categories > 0.6],
-       aes(x = categories, y = percentage_of_categories)) +
+mean_per_category %>%
+  arrange(desc(percentage_of_categories)) %>%
+  top_n(10) %>%
+  mutate(categories = reorder(categories, percentage_of_categories)) %>%
+  ggplot(aes(x = categories, y = percentage_of_categories)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
   geom_col(fill = "#FF6666") +
   ggtitle("Most niche categories (appearing on their own most of the time")
 
